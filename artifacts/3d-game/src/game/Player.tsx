@@ -51,45 +51,54 @@ export default function Player() {
       }
     };
 
-    const handleClick = (e: MouseEvent) => {
+    const handleShoot = (clientX: number, clientY: number) => {
       if (phase !== "playing") return;
+      if (shootCooldownRef.current > 0) return;
+
       const rect = canvas.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((clientY - rect.top) / rect.height) * 2 + 1;
       _raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
       _raycaster.ray.intersectPlane(_groundPlane, _target);
 
-      if (_target && shootCooldownRef.current <= 0) {
-        const dir = new THREE.Vector3()
-          .subVectors(_target, posRef.current)
-          .setY(0)
-          .normalize();
+      const dir = new THREE.Vector3()
+        .subVectors(_target, posRef.current)
+        .setY(0)
+        .normalize();
 
-        if (dir.lengthSq() > 0.01) {
-          const bulletPos = posRef.current.clone().addScaledVector(dir, 0.8);
-          bulletPos.y = 0.8;
-          setBullets((prev) => [
-            ...prev,
-            {
-              id: `pb_${Date.now()}_${Math.random()}`,
-              position: bulletPos,
-              direction: dir,
-              speed: 20,
-              fromPlayer: true,
-              damage: 25,
-              lifetime: 3,
-            },
-          ]);
-          shootCooldownRef.current = SHOOT_COOLDOWN;
-        }
+      if (dir.lengthSq() > 0.01) {
+        const bulletPos = posRef.current.clone().addScaledVector(dir, 0.8);
+        bulletPos.y = 0.8;
+        // Get current bullets from store directly (setBullets takes an array, not an updater fn)
+        const currentBullets = useGameStore.getState().bullets;
+        useGameStore.getState().setBullets([
+          ...(Array.isArray(currentBullets) ? currentBullets : []),
+          {
+            id: `pb_${Date.now()}_${Math.random()}`,
+            position: bulletPos,
+            direction: dir,
+            speed: 20,
+            fromPlayer: true,
+            damage: 25,
+            lifetime: 3,
+          },
+        ]);
+        shootCooldownRef.current = SHOOT_COOLDOWN;
       }
+    };
+
+    const handleClick = (e: MouseEvent) => handleShoot(e.clientX, e.clientY);
+    const handlePointerDown = (e: PointerEvent) => {
+      if (e.button === 0) handleShoot(e.clientX, e.clientY);
     };
 
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("click", handleClick);
+    canvas.addEventListener("pointerdown", handlePointerDown);
     return () => {
       canvas.removeEventListener("mousemove", handleMouseMove);
       canvas.removeEventListener("click", handleClick);
+      canvas.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [camera, gl, phase, setBullets]);
 
