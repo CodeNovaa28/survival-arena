@@ -34,7 +34,8 @@ function spawnWave(wave: number): Enemy[] {
   const count = 3 + wave * 2;
   const types: EnemyType[] = ["chaser", "tank", "ranged"];
   return Array.from({ length: count }, (_, i) => {
-    const typeIndex = wave === 1 && i < 3 ? 0 : Math.floor(Math.random() * Math.min(3, wave + 1));
+    const typeIndex =
+      wave === 1 && i < 3 ? 0 : Math.floor(Math.random() * Math.min(3, wave + 1));
     const type: EnemyType = types[typeIndex];
     const def = ENEMY_DEFS[type];
     return {
@@ -57,44 +58,50 @@ let idCounter = 0;
 export default function GameLogic() {
   const gameTimeRef = useRef(0);
   const waveTimerRef = useRef(WAVE_INTERVAL);
-  const waveSpawningRef = useRef(false);
-  const initializedRef = useRef(false);
+  // true while a wave spawn is pending to prevent double-spawning
+  const waveLockedRef = useRef(false);
+  // tracks whether initial wave has been seeded
+  const readyRef = useRef(false);
 
-  // Spawn first wave after mount
+  function initGame() {
+    readyRef.current = true;
+    waveLockedRef.current = false;
+    gameTimeRef.current = 0;
+    waveTimerRef.current = WAVE_INTERVAL;
+    const s = useGameStore.getState();
+    s.setWave(1);
+    s.setEnemies(spawnWave(1));
+    s.setBullets([]);
+  }
+
+  // Seed the first wave once on mount
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-    const state = useGameStore.getState();
-    if (state.phase === "playing") {
-      state.setWave(1);
-      state.setEnemies(spawnWave(1));
-      state.setBullets([]);
-      waveTimerRef.current = WAVE_INTERVAL;
-      gameTimeRef.current = 0;
-    }
+    initGame();
   }, []);
 
-  // Watch for restart (phase flip gameover -> playing)
+  // Detect restart: phase flips from gameover → playing
   useEffect(() => {
-    let prev = useGameStore.getState().phase;
+    let prevPhase = useGameStore.getState().phase;
+
     const unsub = useGameStore.subscribe((state) => {
-      if (state.phase === "playing" && prev === "gameover") {
-        waveTimerRef.current = WAVE_INTERVAL;
-        gameTimeRef.current = 0;
-        waveSpawningRef.current = false;
-        state.setWave(1);
-        state.setEnemies(spawnWave(1));
-        state.setBullets([]);
+      const currentPhase = state.phase;
+      const wasGameOver = prevPhase === "gameover";
+      // Update prevPhase BEFORE any mutations to avoid re-entrant recursion
+      prevPhase = currentPhase;
+
+      if (currentPhase === "playing" && wasGameOver) {
+        initGame();
       }
-      prev = state.phase;
     });
+
     return unsub;
   }, []);
 
   useFrame((_, delta) => {
+    if (!readyRef.current) return;
+
     const store = useGameStore.getState();
     if (store.phase !== "playing") return;
-    if (!initializedRef.current) return;
 
     gameTimeRef.current += delta;
     waveTimerRef.current -= delta;
@@ -102,19 +109,21 @@ export default function GameLogic() {
     const playerPos = store.playerPosition;
     const now = gameTimeRef.current;
 
-    // Guard against non-array states (safety)
     const enemies: Enemy[] = Array.isArray(store.enemies) ? store.enemies : [];
     const bullets: Bullet[] = Array.isArray(store.bullets) ? store.bullets : [];
 
     // ---- WAVE SPAWNING ----
-    if ((waveTimerRef.current <= 0 || enemies.length === 0) && !waveSpawningRef.current) {
-      waveSpawningRef.current = true;
+    const waveExhausted = enemies.length === 0 && waveTimerRef.current < WAVE_INTERVAL - 2;
+    const timerExpired = waveTimerRef.current <= 0;
+
+    if ((timerExpired || waveExhausted) && !waveLockedRef.current) {
+      waveLockedRef.current = true;
       const newWave = store.wave + 1;
       store.setWave(newWave);
-      const newEnemies = spawnWave(newWave);
-      store.setEnemies([...enemies, ...newEnemies]);
+      store.setEnemies([...enemies, ...spawnWave(newWave)]);
       waveTimerRef.current = WAVE_INTERVAL;
-      setTimeout(() => { waveSpawningRef.current = false; }, 500);
+      // Release lock after one frame via setTimeout
+      setTimeout(() => { waveLockedRef.current = false; }, 100);
       return;
     }
 
@@ -170,6 +179,7 @@ export default function GameLogic() {
             moveX = -dx / distToPlayer;
             moveZ = -dz / distToPlayer;
           } else {
+            // Strafe
             moveX = dz / distToPlayer;
             moveZ = -dx / distToPlayer;
           }
@@ -180,7 +190,7 @@ export default function GameLogic() {
           }
         }
 
-        // Separation
+        // Separation from neighbours
         for (let j = 0; j < enemies.length; j++) {
           if (j === i) continue;
           const other = enemies[j];
@@ -220,13 +230,13 @@ export default function GameLogic() {
         pos.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, pos.z));
 
         // Ranged shooting
-        if (enemy.type === "ranged" && now - lastShot > 2.5 && distToPlayer > 0) {
+        if (enemy.type === "ranged" && distToPlayer > 0 && now - lastShot > 2.5) {
           newEnemyBullets.push({
             id: `eb_${++idCounter}`,
             position: new THREE.Vector3(
-              pos.x + (dx / distToPlayer) * 1.0,
+              pos.x + (dx / distToPlayer),
               0.8,
-              pos.z + (dz / distToPlayer) * 1.0
+              pos.z + (dz / distToPlayer)
             ),
             direction: new THREE.Vector3(dx / distToPlayer, 0, dz / distToPlayer),
             speed: 8,
@@ -237,7 +247,7 @@ export default function GameLogic() {
           lastShot = now;
         }
 
-        // Contact damage (chaser/tank)
+        // Contact damage (chaser / tank)
         if (enemy.type !== "ranged" && distToPlayer < 1.2) {
           if (now - lastDamageTime > 0.6) {
             newPlayerHp -= enemy.damage * 0.5;
@@ -261,10 +271,8 @@ export default function GameLogic() {
       if (newLife <= 0) continue;
       if (Math.abs(newPos.x) > ARENA_HALF + 2 || Math.abs(newPos.z) > ARENA_HALF + 2) continue;
 
-      // Enemy bullets vs player
       if (!bullet.fromPlayer) {
-        const dist = newPos.distanceTo(playerPos);
-        if (dist < 0.7) {
+        if (newPos.distanceTo(playerPos) < 0.7) {
           newPlayerHp -= bullet.damage;
           continue;
         }
@@ -273,11 +281,10 @@ export default function GameLogic() {
       movedBullets.push({ ...bullet, position: newPos, lifetime: newLife });
     }
 
-    // Move and add new enemy bullets
+    // Add newly fired enemy bullets (move one step)
     for (const bullet of newEnemyBullets) {
       const newPos = bullet.position.clone().addScaledVector(bullet.direction, bullet.speed * delta);
-      const dist = newPos.distanceTo(playerPos);
-      if (dist < 0.7) {
+      if (newPos.distanceTo(playerPos) < 0.7) {
         newPlayerHp -= bullet.damage;
         continue;
       }
