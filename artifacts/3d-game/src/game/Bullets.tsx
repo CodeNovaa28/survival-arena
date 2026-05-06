@@ -1,13 +1,11 @@
-import { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGameStore, Bullet } from "./store";
 
 function BulletMesh({ bullet }: { bullet: Bullet }) {
   return (
     <mesh position={[bullet.position.x, bullet.position.y, bullet.position.z]}>
-      <sphereGeometry args={[0.12, 6, 6]} />
-      <meshBasicMaterial color={bullet.fromPlayer ? "#facc15" : "#f43f5e"} />
+      <sphereGeometry args={[bullet.fromPlayer ? 0.13 : 0.1, 6, 6]} />
+      <meshBasicMaterial color={bullet.fromPlayer ? "#fde68a" : "#f43f5e"} />
     </mesh>
   );
 }
