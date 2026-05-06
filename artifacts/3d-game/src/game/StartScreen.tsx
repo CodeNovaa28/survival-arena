@@ -120,7 +120,7 @@ export default function StartScreen() {
           {[
             { icon: "🪙", label: "COINS",    val: coins.toString() },
             { icon: "⏱",  label: "BEST",     val: highScore > 0 ? formatTime(highScore) : "—" },
-            { icon: "🎯",  label: "LEVELS",   val: `${completedLevels.length}/12` },
+            { icon: "🎯",  label: "LEVELS",   val: `${completedLevels.length}/20` },
           ].map((stat) => (
             <div key={stat.label} style={{
               background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
@@ -145,7 +145,7 @@ export default function StartScreen() {
           <ModeCard
             icon="🎯"
             title="LEVELS"
-            desc={`${completedLevels.length}/12 complete · Progress through 12 challenges.`}
+            desc={`${completedLevels.length}/20 complete · Progress through 20 challenges.`}
             color="#a855f7"
             onClick={goLevels}
           />

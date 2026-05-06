@@ -156,6 +156,17 @@ export default function LevelSelectScreen() {
                 <span>⚔️ {level.waves} waves</span>
                 <span style={{ color: "#f59e0b" }}>🪙 +{level.reward}</span>
               </div>
+
+              {/* Milestone unlock label */}
+              {level.milestoneLabel && (
+                <div style={{
+                  marginTop: 8, fontSize: 9, color: "#f59e0b",
+                  background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)",
+                  borderRadius: 4, padding: "4px 7px", letterSpacing: 0.5, lineHeight: 1.4,
+                }}>
+                  {level.milestoneLabel}
+                </div>
+              )}
             </div>
           );
         })}

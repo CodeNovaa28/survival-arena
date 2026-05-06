@@ -94,18 +94,21 @@ export default function CustomizationHub() {
 
 // ─── Character tab ─────────────────────────────────────────────────────────────
 function CharacterTab() {
-  const coins       = useGameStore((s) => s.coins);
-  const ownedSkins  = useGameStore((s) => s.ownedSkins);
-  const selectedSkin= useGameStore((s) => s.selectedSkin);
-  const purchaseSkin= useGameStore((s) => s.purchaseSkin);
-  const selectSkin  = useGameStore((s) => s.selectSkin);
+  const coins                = useGameStore((s) => s.coins);
+  const ownedSkins           = useGameStore((s) => s.ownedSkins);
+  const selectedSkin         = useGameStore((s) => s.selectedSkin);
+  const highestCompletedLevel= useGameStore((s) => s.highestCompletedLevel);
+  const purchaseSkin         = useGameStore((s) => s.purchaseSkin);
+  const selectSkin           = useGameStore((s) => s.selectSkin);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
       {CHARACTER_SKINS.map((skin) => {
         const owned    = ownedSkins.includes(skin.id);
         const selected = selectedSkin === skin.id;
-        const canBuy   = coins >= skin.cost && !owned;
+        const lvlReq   = skin.levelRequirement ?? 0;
+        const lvlMet   = highestCompletedLevel >= lvlReq;
+        const canBuy   = coins >= skin.cost && !owned && (lvlReq === 0 || lvlMet);
         const tierColor= TIER_COLORS[skin.tier];
 
         return (
@@ -162,9 +165,31 @@ function CharacterTab() {
             <div style={{ fontSize: 13, fontWeight: "bold", color: "#fff", marginBottom: 3 }}>
               {skin.badge} {skin.name}
             </div>
-            <div style={{ fontSize: 10, color: "#555", marginBottom: 12, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 10, color: "#555", marginBottom: 8, lineHeight: 1.4 }}>
               {skin.description}
             </div>
+
+            {/* Perk badge */}
+            {skin.perkDesc && (
+              <div style={{
+                fontSize: 10, color: "#22c55e", background: "rgba(34,197,94,0.1)",
+                border: "1px solid rgba(34,197,94,0.3)", borderRadius: 4,
+                padding: "3px 8px", marginBottom: 8,
+              }}>
+                {skin.perkDesc}
+              </div>
+            )}
+
+            {/* Level requirement */}
+            {lvlReq > 0 && (
+              <div style={{
+                fontSize: 10, color: lvlMet ? "#f59e0b" : "#555",
+                marginBottom: 10, display: "flex", alignItems: "center", gap: 4,
+              }}>
+                {lvlMet ? "⭐" : "🔒"} Unlocks after completing Level {lvlReq}
+                {!lvlMet && <span style={{ color: "#333" }}> (you: {highestCompletedLevel})</span>}
+              </div>
+            )}
 
             {/* Action */}
             {selected ? (
@@ -176,6 +201,8 @@ function CharacterTab() {
                 onClick={() => { selectSkin(skin.id); playPurchase(); }}
                 style={shopBtnStyle("#1e3a5f", "#60a5fa")}
               >SELECT</button>
+            ) : lvlReq > 0 && !lvlMet ? (
+              <div style={{ fontSize: 11, color: "#444" }}>🔒 Complete Level {lvlReq} first</div>
             ) : skin.cost === 0 ? (
               <button
                 onClick={() => { purchaseSkin(skin.id, 0); selectSkin(skin.id); }}
@@ -244,9 +271,18 @@ function GunsTab() {
               <div style={{
                 fontSize: 10, color: "#a855f7", background: "rgba(168,85,247,0.1)",
                 border: "1px solid rgba(168,85,247,0.3)", borderRadius: 4,
-                padding: "3px 8px", marginBottom: 10, display: "inline-block",
+                padding: "3px 8px", marginBottom: 8, display: "inline-block",
               }}>
                 AUTO: {gun.autoPowerUp.toUpperCase()}
+              </div>
+            )}
+            {gun.perkDesc && (
+              <div style={{
+                fontSize: 10, color: "#22c55e", background: "rgba(34,197,94,0.1)",
+                border: "1px solid rgba(34,197,94,0.3)", borderRadius: 4,
+                padding: "3px 8px", marginBottom: 8, display: "block",
+              }}>
+                {gun.perkDesc}
               </div>
             )}
 
