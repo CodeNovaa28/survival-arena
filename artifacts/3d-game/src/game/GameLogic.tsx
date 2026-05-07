@@ -1,9 +1,10 @@
 import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGameStore, Enemy, EnemyType, Bullet, PowerUpType } from "./store";
+import { useGameStore, Enemy, EnemyType, Bullet, PowerUpType, DamageEvent } from "./store";
 import { getObstacles, ARENA_HALF } from "./Arena";
 import { getGun } from "./gameGuns";
+import { getMeleeWeapon } from "./gameMeleeWeapons";
 import { CHARACTER_SKINS } from "./gameSkins";
 import { getLevel } from "./gameLevels";
 import {
@@ -31,15 +32,16 @@ const SAFE_ZONE_START  = 23;
 const SAFE_ZONE_MIN    = 6;
 const ZONE_DMG_PER_SEC = 20;
 const WAVE_DURATION    = 20;
+const CRIT_CHANCE      = 0.15;
 
-// Ability constants
-const DRONE_STRIKE_DURATION = 15;   // seconds
+const DRONE_STRIKE_DURATION = 15;
 const DRONE_STRIKE_COOLDOWN = 60;
 const SQUAD_DURATION        = 30;
 const SQUAD_COOLDOWN        = 90;
 
-let bulletId = 0;
-let puId     = 0;
+let bulletId  = 0;
+let puId      = 0;
+let dmgEvtId  = 0;
 
 function spawnPos(): THREE.Vector3 {
   const side = Math.floor(Math.random() * 4);
@@ -86,12 +88,17 @@ function buildWaveEndless(wave: number): Enemy[] {
   const count  = 4+wave*2;
   const spMult = Math.min(2.5, 1+(wave-1)*0.12);
   const hpMult = 1+(wave-1)*0.15;
-  return Array.from({length:count}, (_,i) => makeEnemy(pickType(allowed), spMult, hpMult, `w${wave}_${i}`));
+  return Array.from({length:count}, (_,i) =>
+    makeEnemy(pickType(allowed), spMult, hpMult, `w${wave}_${i}`));
 }
 
-function buildWaveLevel(levelId:number, waveNum:number, allowed:EnemyType[], spMult:number, hpMult:number, base:number, perWave:number): Enemy[] {
+function buildWaveLevel(
+  levelId:number, waveNum:number, allowed:EnemyType[],
+  spMult:number, hpMult:number, base:number, perWave:number,
+): Enemy[] {
   const count = base+(waveNum-1)*perWave;
-  return Array.from({length:count}, (_,i) => makeEnemy(pickType(allowed), spMult, hpMult, `l${levelId}_w${waveNum}_${i}`));
+  return Array.from({length:count}, (_,i) =>
+    makeEnemy(pickType(allowed), spMult, hpMult, `l${levelId}_w${waveNum}_${i}`));
 }
 
 function obstacleHit(pos: THREE.Vector3, obs: ReturnType<typeof getObstacles>): boolean {
@@ -101,19 +108,27 @@ function obstacleHit(pos: THREE.Vector3, obs: ReturnType<typeof getObstacles>): 
   return false;
 }
 
-// Companion shoot positions relative to player (for drone, squad, guardian)
-const DRONE_OFFSETS  = [new THREE.Vector3(-2.2,1.4,0), new THREE.Vector3(2.2,1.4,0)];
-const SQUAD_OFFSETS  = [new THREE.Vector3(-2.8,0.8,-0.5), new THREE.Vector3(2.8,0.8,-0.5)];
+const DRONE_OFFSETS    = [new THREE.Vector3(-2.2,1.4,0), new THREE.Vector3(2.2,1.4,0)];
+const SQUAD_OFFSETS    = [new THREE.Vector3(-2.8,0.8,-0.5), new THREE.Vector3(2.8,0.8,-0.5)];
 const GUARDIAN_OFFSETS = [new THREE.Vector3(-2.4,0.8,-0.8), new THREE.Vector3(2.4,0.8,-0.8)];
 
 function companionShot(from: THREE.Vector3, target: THREE.Vector3, dmg: number): Bullet {
   const dir = target.clone().sub(from).setY(0).normalize();
   return {
     id: `comp_${++bulletId}`,
-    position: from.clone(),
-    direction: dir, speed: 20,
-    fromPlayer: true, damage: dmg, lifetime: 3,
+    position: from.clone(), direction: dir,
+    speed: 20, fromPlayer: true, damage: dmg, lifetime: 3,
   };
+}
+
+function emitDmgEvent(
+  s: ReturnType<typeof useGameStore.getState>,
+  x: number, z: number, raw: number, crit: boolean, melee: boolean,
+) {
+  const val = Math.round(crit ? raw * 2 : raw);
+  const evt: DamageEvent = { id: `de_${++dmgEvtId}`, x, z, value: val, crit, melee };
+  s.addDamageEvent(evt);
+  return val;
 }
 
 export default function GameLogic() {
@@ -126,7 +141,7 @@ export default function GameLogic() {
   const levelCompleteRef = useRef(false);
   const obstaclesRef     = useRef(getObstacles("urban"));
 
-  // Companion timers (local to avoid store thrash)
+  // Companion timers
   const droneTimerRef    = useRef(0);
   const droneCoolRef     = useRef(0);
   const droneShootRef    = useRef(0);
@@ -135,12 +150,17 @@ export default function GameLogic() {
   const squadShootRef    = useRef(0);
   const guardianShootRef = useRef(0);
 
-  useEffect(() => {
-    const s  = useGameStore.getState();
-    const gun = getGun(s.selectedGun);
-    const skin= CHARACTER_SKINS.find((sk) => sk.id === s.selectedSkin);
+  // Melee
+  const meleeCoolRef     = useRef(0);
+  const meleeHeldRef     = useRef(false);
+  const meleeSwingRef    = useRef(false);
 
-    obstaclesRef.current  = getObstacles(s.selectedMap);
+  useEffect(() => {
+    const s   = useGameStore.getState();
+    const gun  = getGun(s.selectedGun);
+    const skin = CHARACTER_SKINS.find((sk) => sk.id === s.selectedSkin);
+
+    obstaclesRef.current     = getObstacles(s.selectedMap);
     levelCompleteRef.current = false;
     wavesSpawnedRef.current  = 1;
     gameTimeRef.current      = 0;
@@ -149,63 +169,69 @@ export default function GameLogic() {
     droneShootRef.current    = 0;
     squadShootRef.current    = 0;
     guardianShootRef.current = 0;
+    meleeCoolRef.current     = 0;
 
-    // Second life perk
     const reviveAvailable =
       skin?.perk === "secondLife" || gun.perk === "secondLife";
     s.setReviveAvailable(reviveAvailable);
 
-    // Guardian companion (ghost_squad skin + completed level 15+)
     const guardianActive =
       s.selectedSkin === "ghost_squad" && s.highestCompletedLevel >= 15;
     s.setGuardianActive(guardianActive);
 
-    // Cooldowns based on prior session (reset each game)
     droneTimerRef.current = 0; droneCoolRef.current = 0;
-    squadTimerRef.current = 0; squadCoolRef.current = 0;
     s.setDroneAbility(false, 0, 0);
     s.setSquadAbility(false, 0, 0);
 
-    // Auto power-up from gun
     const initPUs = gun.autoPowerUp
-      ? [{ type: gun.autoPowerUp, timeLeft: 9999, maxTime: 9999 }]
-      : [];
+      ? [{ type: gun.autoPowerUp, timeLeft: 9999, maxTime: 9999 }] : [];
     s.setActivePowerUps(initPUs);
     s.setBullets([]); s.setPowerUpItems([]);
     s.setSafeZoneRadius(SAFE_ZONE_START);
-    s.setTimeSurvived(0); s.setKillCount(0);
+    s.setTimeSurvived(0); s.setKillCount(0); s.setKillStreak(0);
 
-    // Spawn first wave
     const levelDef = s.gameMode === "levels" ? getLevel(s.currentLevel) : null;
     if (levelDef) {
       s.setWave(1);
-      s.setEnemies(buildWaveLevel(levelDef.id,1,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave));
+      s.setEnemies(buildWaveLevel(
+        levelDef.id,1,levelDef.allowedTypes,
+        levelDef.speedMult,levelDef.hpMult,
+        levelDef.baseEnemyCount,levelDef.enemyCountPerWave,
+      ));
     } else {
       s.setWave(1); s.setEnemies(buildWaveEndless(1));
     }
   }, []);
 
-  // Q / E key listeners for abilities
+  // Q / E ability keys + F melee
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       const s = useGameStore.getState();
       if (s.phase !== "playing" || s.paused) return;
 
-      // Q – Drone Strike (need completed level 5+)
       if (e.code === "KeyQ" && s.highestCompletedLevel >= 5 && droneCoolRef.current <= 0 && !droneTimerRef.current) {
         droneTimerRef.current = DRONE_STRIKE_DURATION;
         droneCoolRef.current  = DRONE_STRIKE_COOLDOWN;
         s.setDroneAbility(true, DRONE_STRIKE_DURATION, DRONE_STRIKE_COOLDOWN);
       }
-      // E – Squad Backup (need completed level 8+)
       if (e.code === "KeyE" && s.highestCompletedLevel >= 8 && squadCoolRef.current <= 0 && !squadTimerRef.current) {
         squadTimerRef.current = SQUAD_DURATION;
         squadCoolRef.current  = SQUAD_COOLDOWN;
         s.setSquadAbility(true, SQUAD_DURATION, SQUAD_COOLDOWN);
       }
+      if (e.code === "KeyF") {
+        meleeHeldRef.current = true;
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "KeyF") meleeHeldRef.current = false;
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup",   onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup",   onKeyUp);
+    };
   }, []);
 
   useFrame((_, delta) => {
@@ -217,56 +243,47 @@ export default function GameLogic() {
     puTimerRef.current   -= delta;
     zoneSoundRef.current -= delta;
 
-    // Tick companion timers
+    // ── Companion timers ──────────────────────────────────────────────────
     if (droneTimerRef.current > 0) {
       droneTimerRef.current -= delta;
-      if (droneTimerRef.current <= 0) {
-        droneTimerRef.current = 0;
-        s.setDroneAbility(false, 0, droneCoolRef.current);
-      } else {
-        s.setDroneAbility(true, droneTimerRef.current, droneCoolRef.current);
-      }
+      if (droneTimerRef.current <= 0) { droneTimerRef.current = 0; s.setDroneAbility(false, 0, droneCoolRef.current); }
+      else s.setDroneAbility(true, droneTimerRef.current, droneCoolRef.current);
     }
-    if (droneCoolRef.current > 0) {
-      droneCoolRef.current -= delta;
-      if (droneCoolRef.current < 0) droneCoolRef.current = 0;
-    }
+    if (droneCoolRef.current > 0) { droneCoolRef.current -= delta; if (droneCoolRef.current < 0) droneCoolRef.current = 0; }
     if (squadTimerRef.current > 0) {
       squadTimerRef.current -= delta;
-      if (squadTimerRef.current <= 0) {
-        squadTimerRef.current = 0;
-        s.setSquadAbility(false, 0, squadCoolRef.current);
-      } else {
-        s.setSquadAbility(true, squadTimerRef.current, squadCoolRef.current);
-      }
+      if (squadTimerRef.current <= 0) { squadTimerRef.current = 0; s.setSquadAbility(false, 0, squadCoolRef.current); }
+      else s.setSquadAbility(true, squadTimerRef.current, squadCoolRef.current);
     }
-    if (squadCoolRef.current > 0) {
-      squadCoolRef.current -= delta;
-      if (squadCoolRef.current < 0) squadCoolRef.current = 0;
-    }
-
+    if (squadCoolRef.current > 0) { squadCoolRef.current -= delta; if (squadCoolRef.current < 0) squadCoolRef.current = 0; }
     droneShootRef.current    -= delta;
     squadShootRef.current    -= delta;
     guardianShootRef.current -= delta;
 
+    // ── Melee cooldown ────────────────────────────────────────────────────
+    if (meleeCoolRef.current > 0) {
+      meleeCoolRef.current -= delta;
+      if (meleeCoolRef.current < 0) meleeCoolRef.current = 0;
+      s.setMeleeCooldown(meleeCoolRef.current);
+    }
+
     const now       = gameTimeRef.current;
-    const wave      = s.wave;
     const playerPos = s.playerPosition;
     const playerVel = s.playerVelocity;
     const gameMode  = s.gameMode;
     const levelDef  = gameMode === "levels" ? getLevel(s.currentLevel) : null;
     const obs       = obstaclesRef.current;
 
-    const enemies      = Array.isArray(s.enemies)       ? s.enemies       : [];
-    const bullets      = Array.isArray(s.bullets)       ? s.bullets       : [];
-    const puItems      = Array.isArray(s.powerUpItems)  ? s.powerUpItems  : [];
-    const activePUs    = Array.isArray(s.activePowerUps)? s.activePowerUps: [];
+    const enemies   = Array.isArray(s.enemies)        ? s.enemies        : [];
+    const bullets   = Array.isArray(s.bullets)        ? s.bullets        : [];
+    const puItems   = Array.isArray(s.powerUpItems)   ? s.powerUpItems   : [];
+    const activePUs = Array.isArray(s.activePowerUps) ? s.activePowerUps : [];
 
     const newTime = s.timeSurvived + delta;
 
     // ── Safe zone ──────────────────────────────────────────────────────────
     const shrinkMult = levelDef ? levelDef.safeZoneShrinkMult : 1;
-    const shrinkRate = (0.018+(wave-1)*0.007)*shrinkMult;
+    const shrinkRate = (0.018+(s.wave-1)*0.007)*shrinkMult;
     const newZone    = Math.max(SAFE_ZONE_MIN, s.safeZoneRadius - shrinkRate*delta);
     const playerDist = Math.sqrt(playerPos.x**2+playerPos.z**2);
     let   zoneDmg    = 0;
@@ -283,17 +300,21 @@ export default function GameLogic() {
     if (gun.autoPowerUp && !updatedActivePUs.some((p) => p.type===gun.autoPowerUp)) {
       updatedActivePUs.push({type:gun.autoPowerUp,timeLeft:9999,maxTime:9999});
     }
-    const hasShield  = updatedActivePUs.some((p) => p.type==="shield");
+    const hasShield   = updatedActivePUs.some((p) => p.type==="shield");
+    const hasRapid    = updatedActivePUs.some((p) => p.type==="rapidfire");
+    const effectiveFR = hasRapid ? gun.fireRate * 0.4 : gun.fireRate;
 
     // ── Power-up item spawn ────────────────────────────────────────────────
-    let updatedPuItems = puItems.map((p) => ({...p,lifetime:p.lifetime-delta})).filter((p) => p.lifetime>0);
+    let updatedPuItems = puItems
+      .map((p) => ({...p,lifetime:p.lifetime-delta}))
+      .filter((p) => p.lifetime>0);
     if (puTimerRef.current <= 0) {
-      const types: PowerUpType[]  = ["speed","shield","rapidfire","heal","drone"];
-      const weights               = [0.28,0.22,0.22,0.18,0.10];
+      const types: PowerUpType[] = ["speed","shield","rapidfire","heal","drone"];
+      const weights = [0.28,0.22,0.22,0.18,0.10];
       let r=Math.random(), chosen:PowerUpType="speed";
       for (let i=0;i<types.length;i++) { r-=weights[i]; if(r<=0){chosen=types[i];break;} }
       updatedPuItems.push({id:`pu_${++puId}`,position:randomArenaPos(newZone),type:chosen,lifetime:14});
-      puTimerRef.current = Math.max(10, 20-wave);
+      puTimerRef.current = Math.max(10, 20-s.wave);
     }
 
     // ── Power-up pickup ────────────────────────────────────────────────────
@@ -317,10 +338,8 @@ export default function GameLogic() {
     const waveExhausted = enemies.length===0 && now>3;
     if (gameMode==="levels" && levelDef) {
       if (waveExhausted && wavesSpawnedRef.current>=levelDef.waves && !waveLockedRef.current) {
-        levelCompleteRef.current = true;
-        playLevelComplete();
-        s.setTimeSurvived(newTime);
-        s.completeLevel(s.currentLevel, levelDef.reward);
+        levelCompleteRef.current = true; playLevelComplete();
+        s.setTimeSurvived(newTime); s.completeLevel(s.currentLevel, levelDef.reward);
         return;
       }
       if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current && wavesSpawnedRef.current<levelDef.waves) {
@@ -334,40 +353,92 @@ export default function GameLogic() {
     } else {
       if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current) {
         waveLockedRef.current = true;
-        const nw=wave+1; s.setWave(nw);
+        const nw=s.wave+1; s.setWave(nw);
         s.setEnemies([...enemies,...buildWaveEndless(nw)]);
         waveTimerRef.current=WAVE_DURATION; playWaveStart();
         setTimeout(() => { waveLockedRef.current=false; }, 200); return;
       }
     }
 
-    // ── Hit detection ──────────────────────────────────────────────────────
-    const damageMap  = new Map<string,number>();
-    const bulletHits = new Set<string>();
+    // ── Melee attack ───────────────────────────────────────────────────────
+    const meleeWeapon = getMeleeWeapon(s.selectedMelee);
+    const meleeDamageMap = new Map<string, number>();
+    let meleeTriggered = false;
+
+    if (meleeHeldRef.current && meleeCoolRef.current <= 0) {
+      meleeCoolRef.current = meleeWeapon.cooldown;
+      s.setMeleeCooldown(meleeWeapon.cooldown);
+      meleeTriggered = true;
+
+      // Swing visual (show for 0.35s)
+      if (!meleeSwingRef.current) {
+        meleeSwingRef.current = true;
+        s.setMeleeSwinging(true);
+        setTimeout(() => { meleeSwingRef.current = false; s.setMeleeSwinging(false); }, 350);
+      }
+
+      // Player facing direction (from velocity or default forward)
+      const velLen = Math.sqrt(playerVel.x**2 + playerVel.z**2);
+      const facX   = velLen > 0.1 ? playerVel.x / velLen : 0;
+      const facZ   = velLen > 0.1 ? playerVel.z / velLen : 1;
+
+      for (const e of enemies) {
+        const dx   = e.position.x - playerPos.x;
+        const dz   = e.position.z - playerPos.z;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        if (dist > meleeWeapon.range + 0.4) continue;
+
+        let inArc = true;
+        if (!meleeWeapon.aoe) {
+          const dot = (dx/dist)*facX + (dz/dist)*facZ;
+          const halfRad = (meleeWeapon.swingArc * Math.PI / 180) / 2;
+          inArc = Math.acos(Math.max(-1, Math.min(1, dot))) <= halfRad;
+        }
+        if (!inArc) continue;
+
+        const crit = Math.random() < CRIT_CHANCE;
+        const raw  = meleeWeapon.damage;
+        const val  = emitDmgEvent(s, e.position.x, e.position.z, raw, crit, true);
+        meleeDamageMap.set(e.id, (meleeDamageMap.get(e.id) ?? 0) + val);
+      }
+    }
+
+    // ── Bullet hit detection ───────────────────────────────────────────────
+    const bulletDamageMap = new Map<string,number>();
+    const bulletHits      = new Set<string>();
     for (const b of bullets) {
       if (!b.fromPlayer) continue;
       for (const e of enemies) {
         const hitR = e.type==="tank"?1.4:e.type==="bomber"?1.2:0.85;
-        if (b.position.distanceTo(e.position)<hitR) { damageMap.set(e.id,(damageMap.get(e.id)??0)+b.damage); bulletHits.add(b.id); }
+        if (b.position.distanceTo(e.position)<hitR) {
+          const crit = Math.random() < CRIT_CHANCE;
+          const raw  = b.damage;
+          const val  = emitDmgEvent(s, e.position.x, e.position.z, raw, crit, false);
+          bulletDamageMap.set(e.id, (bulletDamageMap.get(e.id) ?? 0) + val);
+          bulletHits.add(b.id);
+        }
       }
     }
 
     // ── Update enemies ─────────────────────────────────────────────────────
-    let contactDmg=0, totalCoinsEarned=0;
+    let contactDmg=0, totalCoinsEarned=0, killsThisFrame=0;
     const updatedEnemies: Enemy[] = [];
     const newEnemyBullets: Bullet[] = [];
 
     for (let i=0;i<enemies.length;i++) {
-      const e = enemies[i];
-      const hp = e.hp-(damageMap.get(e.id)??0);
+      const e  = enemies[i];
+      const dmg= (bulletDamageMap.get(e.id) ?? 0) + (meleeDamageMap.get(e.id) ?? 0);
+      const hp = e.hp - dmg;
+
       if (hp<=0) {
         if (e.type==="bomber") { const d=e.position.distanceTo(playerPos); if(d<5&&!hasShield) contactDmg+=e.baseDamage*(1-d/5); }
         playEnemyDeath(e.type);
         totalCoinsEarned+=COIN_REWARDS[e.type];
         s.recordKill(e.type);
+        killsThisFrame++;
         continue;
       }
-      if (damageMap.has(e.id)) playEnemyHit();
+      if (dmg > 0) playEnemyHit();
 
       const pos=e.position.clone(); let lastShot=e.lastShot, lastDamageTime=e.lastDamageTime;
       const dx=playerPos.x-pos.x, dz=playerPos.z-pos.z, dist=Math.sqrt(dx*dx+dz*dz)||0.01;
@@ -410,7 +481,7 @@ export default function GameLogic() {
         pos.x=Math.max(-ARENA_HALF,Math.min(ARENA_HALF,pos.x));
         pos.z=Math.max(-ARENA_HALF,Math.min(ARENA_HALF,pos.z));
 
-        if(e.type==="ranged"&&dist>2&&now-lastShot>Math.max(1.2,2.5-wave*0.12)) {
+        if(e.type==="ranged"&&dist>2&&now-lastShot>Math.max(1.2,2.5-s.wave*0.12)) {
           newEnemyBullets.push({id:`eb_${++bulletId}`,position:new THREE.Vector3(pos.x+pdx/pdist,0.8,pos.z+pdz/pdist),direction:new THREE.Vector3(pdx/pdist,0,pdz/pdist),speed:9,fromPlayer:false,damage:e.baseDamage,lifetime:5});
           lastShot=now;
         }
@@ -419,13 +490,18 @@ export default function GameLogic() {
       updatedEnemies.push({...e,position:pos,hp,lastShot,lastDamageTime});
     }
 
+    // ── Killstreak ─────────────────────────────────────────────────────────
+    let newKillStreak = s.killStreak + killsThisFrame;
+    // Coin multiplier based on streak before this kill batch
+    const streakMult = s.killStreak >= 20 ? 3 : s.killStreak >= 10 ? 2 : s.killStreak >= 5 ? 1.5 : 1;
+    totalCoinsEarned = Math.round(totalCoinsEarned * streakMult);
+
     // ── Companion shooting ─────────────────────────────────────────────────
     const newCompBullets: Bullet[] = [];
     const sorted = updatedEnemies.length > 0
       ? [...updatedEnemies].sort((a,b) => a.position.distanceTo(playerPos)-b.position.distanceTo(playerPos))
       : [];
 
-    // Drone Strike (2 drones, 15 dmg, shoot every 1.4s)
     if (droneTimerRef.current > 0 && droneShootRef.current <= 0 && sorted.length > 0) {
       DRONE_OFFSETS.forEach((off, di) => {
         const t = sorted[di % sorted.length];
@@ -435,8 +511,6 @@ export default function GameLogic() {
       });
       droneShootRef.current = 1.4;
     }
-
-    // Squad Backup (2 helpers, 25 dmg, shoot every 1.0s)
     if (squadTimerRef.current > 0 && squadShootRef.current <= 0 && sorted.length > 0) {
       SQUAD_OFFSETS.forEach((off, di) => {
         const t = sorted[di % sorted.length];
@@ -446,8 +520,6 @@ export default function GameLogic() {
       });
       squadShootRef.current = 1.0;
     }
-
-    // Guardian (permanent, uses gun damage * 0.8, shoot every 0.8s)
     if (s.guardianActive && guardianShootRef.current <= 0 && sorted.length > 0) {
       const gunDmg = getGun(s.selectedGun).damage * 0.8;
       GUARDIAN_OFFSETS.forEach((off, di) => {
@@ -460,24 +532,26 @@ export default function GameLogic() {
     }
 
     // ── Bullet movement ────────────────────────────────────────────────────
-    let bulletDmg = 0;
+    let bulletPlayerDmg = 0;
     const movedBullets: Bullet[] = [];
     const allBullets = [...bullets, ...newEnemyBullets, ...newCompBullets];
     for (const b of allBullets) {
       if (bulletHits.has(b.id)) continue;
       const np   = b.position.clone().addScaledVector(b.direction, b.speed*delta);
-      const life = b.lifetime-delta;
+      const life = b.lifetime - delta;
       if (life<=0) continue;
       if (Math.abs(np.x)>ARENA_HALF+1.5||Math.abs(np.z)>ARENA_HALF+1.5) continue;
       if (obstacleHit(np,obs)) continue;
-      if (!b.fromPlayer && np.distanceTo(playerPos)<0.75) { bulletDmg+=b.damage; continue; }
+      if (!b.fromPlayer && np.distanceTo(playerPos)<0.75) { bulletPlayerDmg+=b.damage; continue; }
       movedBullets.push({...b,position:np,lifetime:life});
     }
 
-    // ── Apply damage & check death ─────────────────────────────────────────
-    const totalDmg = hasShield ? zoneDmg*0.3 : contactDmg+bulletDmg+zoneDmg;
-    const newHp    = Math.max(0, Math.min(s.maxPlayerHp, s.playerHp-totalDmg));
-    if (totalDmg>0.5&&!hasShield) playPlayerHit();
+    // ── Damage & death ─────────────────────────────────────────────────────
+    const rawDmg   = contactDmg + bulletPlayerDmg + zoneDmg;
+    const totalDmg = hasShield ? zoneDmg * 0.3 : rawDmg;
+    const newHp    = Math.max(0, Math.min(s.maxPlayerHp, s.playerHp - totalDmg));
+
+    if (rawDmg > 0.5 && !hasShield) { playPlayerHit(); newKillStreak = 0; } // streak reset on damage
 
     // ── Commit ─────────────────────────────────────────────────────────────
     s.setTimeSurvived(newTime);
@@ -486,18 +560,17 @@ export default function GameLogic() {
     s.setBullets(movedBullets);
     s.setPowerUpItems(remainingPUs);
     s.setActivePowerUps(updatedActivePUs);
-    const kills = enemies.length-updatedEnemies.length;
-    if (kills>0) { s.setKillCount(s.killCount+kills); s.addSessionCoins(totalCoinsEarned); }
+    if (killsThisFrame > 0) {
+      s.setKillCount(s.killCount + killsThisFrame);
+      s.addSessionCoins(totalCoinsEarned);
+    }
+    s.setKillStreak(newKillStreak);
 
-    if (newHp!==s.playerHp) {
+    if (newHp !== s.playerHp) {
       s.setPlayerHp(newHp);
-      if (newHp<=0) {
-        if (s.reviveAvailable) {
-          s.revive();
-        } else {
-          playGameOver();
-          s.finishGame();
-        }
+      if (newHp <= 0) {
+        if (s.reviveAvailable) { s.revive(); }
+        else { playGameOver(); s.finishGame(); }
       }
     }
   });

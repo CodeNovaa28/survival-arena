@@ -12,6 +12,8 @@ import SafeZone from "./SafeZone";
 import GameLogic from "./GameLogic";
 import CameraController from "./CameraController";
 import Companions from "./Companions";
+import MeleeEffect from "./MeleeEffect";
+import DamageNumbers from "./DamageNumbers";
 import HUD from "./HUD";
 import StartScreen from "./StartScreen";
 import GameOverScreen from "./GameOverScreen";
@@ -20,10 +22,7 @@ import CustomizationHub from "./CustomizationHub";
 import LevelSelectScreen from "./LevelSelectScreen";
 
 enum Controls {
-  forward = "forward",
-  back    = "back",
-  left    = "left",
-  right   = "right",
+  forward = "forward", back = "back", left = "left", right = "right",
 }
 const KEY_MAP = [
   { name: Controls.forward, keys: ["ArrowUp",    "KeyW"] },
@@ -56,6 +55,8 @@ function Scene({ mapId }: { mapId: string }) {
       <Bullets />
       <PowerUps />
       <Companions />
+      <MeleeEffect />
+      <DamageNumbers />
       <GameLogic />
       <CameraController />
     </>
@@ -63,13 +64,12 @@ function Scene({ mapId }: { mapId: string }) {
 }
 
 export default function Game() {
-  const phase     = useGameStore((s) => s.phase);
-  const gameKey   = useGameStore((s) => s.gameKey);
-  const paused    = useGameStore((s) => s.paused);
+  const phase       = useGameStore((s) => s.phase);
+  const gameKey     = useGameStore((s) => s.gameKey);
+  const paused      = useGameStore((s) => s.paused);
   const selectedMap = useGameStore((s) => s.selectedMap);
-  const setPaused = useGameStore((s) => s.setPaused);
+  const setPaused   = useGameStore((s) => s.setPaused);
 
-  // ESC → toggle pause
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Escape" && phase === "playing") {
@@ -85,15 +85,12 @@ export default function Game() {
   return (
     <div style={{
       width: "100vw", height: "100vh",
-      background: "#020508",
-      position: "relative", overflow: "hidden",
+      background: "#020508", position: "relative", overflow: "hidden",
     }}>
-      {/* ── Start screen ── */}
       {phase === "start"         && <StartScreen />}
       {phase === "customization" && <CustomizationHub />}
       {phase === "levelselect"   && <LevelSelectScreen />}
 
-      {/* ── 3-D canvas (keyed so it fully remounts on restart) ── */}
       {showCanvas && (
         <KeyboardControls map={KEY_MAP}>
           <Canvas
@@ -108,13 +105,8 @@ export default function Game() {
         </KeyboardControls>
       )}
 
-      {/* ── HUD ── */}
       {phase === "playing" && <HUD />}
-
-      {/* ── Pause menu overlay ── */}
       {phase === "playing" && paused && <PauseMenu />}
-
-      {/* ── Game-over / victory overlay ── */}
       {phase === "gameover" && <GameOverScreen />}
     </div>
   );

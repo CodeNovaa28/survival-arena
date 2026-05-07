@@ -3,9 +3,10 @@ import { useGameStore } from "./store";
 import { CHARACTER_SKINS, TIER_COLORS } from "./gameSkins";
 import { GUNS, GUN_TIER_COLORS } from "./gameGuns";
 import { MAPS } from "./gameMaps";
+import { MELEE_WEAPONS, MELEE_TIER_COLORS } from "./gameMeleeWeapons";
 import { playPurchase } from "./sounds";
 
-type Tab = "character" | "guns" | "maps";
+type Tab = "character" | "guns" | "maps" | "melee";
 
 export default function CustomizationHub() {
   const [tab, setTab] = useState<Tab>("character");
@@ -58,7 +59,8 @@ export default function CustomizationHub() {
         {([
           { id: "character", label: "👤 CHARACTER" },
           { id: "guns",      label: "🔫 WEAPONS"   },
-          { id: "maps",      label: "🗺️ MAPS"       },
+          { id: "melee",     label: "⚔️ MELEE"      },
+          { id: "maps",      label: "🗺️ MAPS"        },
         ] as const).map(({ id, label }) => (
           <button
             key={id}
@@ -80,6 +82,7 @@ export default function CustomizationHub() {
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
         {tab === "character" && <CharacterTab />}
         {tab === "guns"      && <GunsTab />}
+        {tab === "melee"     && <MeleeTab />}
         {tab === "maps"      && <MapsTab />}
       </div>
 
@@ -417,6 +420,130 @@ function MapsTab() {
         );
       })}
     </div>
+  );
+}
+
+// ─── Melee tab ────────────────────────────────────────────────────────────────
+function MeleeTab() {
+  const coins         = useGameStore((s) => s.coins);
+  const ownedMelees   = useGameStore((s) => s.ownedMelees);
+  const selectedMelee = useGameStore((s) => s.selectedMelee);
+  const purchaseMelee = useGameStore((s) => s.purchaseMelee);
+  const selectMelee   = useGameStore((s) => s.selectMelee);
+
+  return (
+    <>
+      {/* Hint row */}
+      <div style={{
+        background: "rgba(251,146,60,0.07)", border: "1px solid rgba(251,146,60,0.2)",
+        borderRadius: 10, padding: "10px 16px", marginBottom: 18,
+        display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#fb923c",
+      }}>
+        <span style={{ fontSize: 18 }}>⚔️</span>
+        <span>Press <strong>F</strong> to swing your melee weapon in combat.
+          Chainsaw: hold F. Critical hits (15% chance) deal 2× damage.
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
+        {MELEE_WEAPONS.map((weapon) => {
+          const owned     = ownedMelees.includes(weapon.id);
+          const selected  = selectedMelee === weapon.id;
+          const canBuy    = coins >= weapon.cost && !owned;
+          const tierColor = MELEE_TIER_COLORS[weapon.tier];
+
+          // Range bar (0-3.5m → 0-10)
+          const statRange   = Math.round((weapon.range / 3.5) * 10);
+          // Damage bar (25-190 → 1-10)
+          const statDamage  = Math.round(((weapon.damage - 25) / 165) * 9) + 1;
+          // Speed (cooldown inverted: 0.13=10, 2.0=1)
+          const statSpeed   = Math.round(((2.0 - weapon.cooldown) / 1.87) * 9) + 1;
+
+          return (
+            <div
+              key={weapon.id}
+              style={{
+                background: selected ? "rgba(251,146,60,0.1)" : "rgba(255,255,255,0.03)",
+                border: selected
+                  ? "2px solid rgba(251,146,60,0.6)"
+                  : `1px solid ${tierColor}28`,
+                borderRadius: 12, padding: "18px 16px",
+                transition: "all 0.18s",
+              }}
+            >
+              {/* Header row */}
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ fontSize: 28 }}>{weapon.badge}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 10, color: tierColor, letterSpacing: 1, fontWeight: "bold" }}>
+                    {weapon.tier.toUpperCase()}
+                  </div>
+                  {weapon.aoe && (
+                    <div style={{ fontSize: 9, color: "#a855f7", marginTop: 2 }}>360° AoE</div>
+                  )}
+                  {weapon.chainsaw && (
+                    <div style={{ fontSize: 9, color: "#ef4444", marginTop: 2 }}>HOLD F</div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ fontSize: 15, fontWeight: "bold", color: "#fff", marginBottom: 4 }}>
+                {weapon.name}
+              </div>
+              <div style={{ fontSize: 10, color: "#555", marginBottom: 12, lineHeight: 1.5 }}>
+                {weapon.description}
+              </div>
+
+              {/* Stat bars */}
+              <div style={{ marginBottom: 12 }}>
+                <StatBar label="DAMAGE"  value={statDamage}  color="#ef4444" />
+                <StatBar label="SPEED"   value={statSpeed}   color="#f97316" />
+                <StatBar label="RANGE"   value={statRange}   color="#3b82f6" />
+              </div>
+
+              {/* Quick stats row */}
+              <div style={{
+                display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap",
+              }}>
+                <span style={{ fontSize: 9, background: "rgba(239,68,68,0.1)", color: "#f87171", padding: "2px 6px", borderRadius: 4 }}>
+                  {weapon.damage} DMG
+                </span>
+                <span style={{ fontSize: 9, background: "rgba(59,130,246,0.1)", color: "#60a5fa", padding: "2px 6px", borderRadius: 4 }}>
+                  {weapon.range}m RANGE
+                </span>
+                <span style={{ fontSize: 9, background: "rgba(251,146,60,0.1)", color: "#fb923c", padding: "2px 6px", borderRadius: 4 }}>
+                  {weapon.cooldown}s CD
+                </span>
+              </div>
+
+              {/* Action */}
+              {selected ? (
+                <div style={{ fontSize: 12, color: "#fb923c", fontWeight: "bold", letterSpacing: 1 }}>✓ EQUIPPED</div>
+              ) : owned ? (
+                <button
+                  onClick={() => { selectMelee(weapon.id); playPurchase(); }}
+                  style={shopBtnStyle("#1e3a5f", "#60a5fa")}
+                >SELECT</button>
+              ) : weapon.cost === 0 ? (
+                <button
+                  onClick={() => { purchaseMelee(weapon.id, 0); selectMelee(weapon.id); playPurchase(); }}
+                  style={shopBtnStyle("#14532d", "#22c55e")}
+                >UNLOCK FREE</button>
+              ) : canBuy ? (
+                <button
+                  onClick={() => { if (purchaseMelee(weapon.id, weapon.cost)) { selectMelee(weapon.id); playPurchase(); } }}
+                  style={shopBtnStyle("#78350f", "#f59e0b")}
+                >🪙 {weapon.cost}</button>
+              ) : (
+                <div style={{ fontSize: 11, color: "#555" }}>
+                  🪙 {weapon.cost} <span style={{ color: "#333" }}>· Need {weapon.cost - coins} more</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
