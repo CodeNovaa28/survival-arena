@@ -120,9 +120,9 @@ export default function GameOverScreen() {
         {/* Buttons */}
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           <ActionBtn
-            label={levelWon && gameMode === "levels" && currentLevel < 12 ? "NEXT LEVEL" : "PLAY AGAIN"}
+            label={levelWon && gameMode === "levels" && currentLevel < 20 ? "NEXT LEVEL" : "PLAY AGAIN"}
             color={accent}
-            onClick={levelWon && gameMode === "levels" && currentLevel < 12 ? handleNextLevel : handleRestart}
+            onClick={levelWon && gameMode === "levels" && currentLevel < 20 ? handleNextLevel : handleRestart}
           />
           <ActionBtn label="MENU" color="#334155" onClick={handleMenu} />
           {gameMode === "levels" && (

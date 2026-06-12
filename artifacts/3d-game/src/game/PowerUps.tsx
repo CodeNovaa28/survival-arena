@@ -8,6 +8,7 @@ const COLORS: Record<PowerUpType, string> = {
   shield:    "#3b82f6",
   rapidfire: "#facc15",
   heal:      "#22c55e",
+  drone:     "#a855f7",
 };
 
 const LABELS: Record<PowerUpType, string> = {
@@ -15,6 +16,7 @@ const LABELS: Record<PowerUpType, string> = {
   shield:    "SHD",
   rapidfire: "RFR",
   heal:      "HLT",
+  drone:     "DRN",
 };
 
 function PowerUpMesh({ item }: { item: PowerUpItem }) {

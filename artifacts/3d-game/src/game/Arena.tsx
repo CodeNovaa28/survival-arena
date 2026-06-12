@@ -27,7 +27,7 @@ export default function Arena({ mapId = "urban" }: { mapId?: string }) {
       </mesh>
 
       {/* Grid overlay */}
-      <gridHelper args={[ARENA_SIZE, 25, "#ffffff08", "#ffffff05"]} position={[0, 0.01, 0]} />
+      <gridHelper args={[ARENA_SIZE, 25, "#1e2235", "#131726"]} position={[0, 0.01, 0]} />
 
       {/* Boundary walls */}
       {([

@@ -95,7 +95,7 @@ export default function Game() {
         <KeyboardControls map={KEY_MAP}>
           <Canvas
             key={gameKey}
-            shadows
+            shadows={{ type: 2 }}
             camera={{ position: [0, 17, 11], fov: 58, near: 0.1, far: 500 }}
             style={{ width: "100%", height: "100%" }}
             gl={{ antialias: true }}

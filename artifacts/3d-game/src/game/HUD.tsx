@@ -2,6 +2,7 @@ import { useGameStore, PowerUpType } from "./store";
 import { getGun } from "./gameGuns";
 import { getMeleeWeapon } from "./gameMeleeWeapons";
 import { LEVELS } from "./gameLevels";
+import { CoinIcon, ClockIcon } from "./GameIcons";
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -97,7 +98,10 @@ export default function HUD() {
       }}>
         {gameMode === "endless" ? (
           <>
-            <div style={{ fontSize: 11, color: "#555", letterSpacing: 3, marginBottom: 2 }}>TIME SURVIVED</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 2 }}>
+              <ClockIcon size={13} />
+              <span style={{ fontSize: 11, color: "#555", letterSpacing: 3 }}>TIME SURVIVED</span>
+            </div>
             <div style={{ fontSize: 38, fontWeight: 900, letterSpacing: 3, color: isNewBest ? "#facc15" : "#fff", textShadow: isNewBest ? "0 0 20px rgba(250,204,21,.5)" : "none" }}>{fmt(timeSurvived)}</div>
             {highScore > 0 && <div style={{ fontSize: 10, color: "#facc15", marginTop: 2, letterSpacing: 1 }}>★ BEST {fmt(highScore)}</div>}
           </>
@@ -129,7 +133,7 @@ export default function HUD() {
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-          <span style={{ fontSize: 14 }}>🪙</span>
+          <CoinIcon size={18} />
           <span style={{ fontSize: 16, fontWeight: "bold", color: "#f59e0b" }}>+{sessionCoins}</span>
           <span style={{ fontSize: 10, color: "#444" }}>this run</span>
         </div>

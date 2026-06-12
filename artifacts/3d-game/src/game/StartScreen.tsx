@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useGameStore } from "./store";
 import { initAudio } from "./sounds";
 import { initMusic } from "./music";
+import { CoinIcon, ClockIcon, TargetIcon } from "./GameIcons";
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
@@ -114,21 +115,23 @@ export default function StartScreen() {
 
         {/* Stats row */}
         <div style={{
-          display: "flex", justifyContent: "center", gap: 24, margin: "20px 0 28px",
+          display: "flex", justifyContent: "center", gap: 14, margin: "20px 0 28px",
           flexWrap: "wrap",
         }}>
-          {[
-            { icon: "🪙", label: "COINS",    val: coins.toString() },
-            { icon: "⏱",  label: "BEST",     val: highScore > 0 ? formatTime(highScore) : "—" },
-            { icon: "🎯",  label: "LEVELS",   val: `${completedLevels.length}/20` },
-          ].map((stat) => (
+          {([
+            { icon: <CoinIcon size={28} />,   label: "COINS",  val: coins.toString(),                          accent: "#f59e0b" },
+            { icon: <ClockIcon size={28} />,  label: "BEST",   val: highScore > 0 ? formatTime(highScore) : "—", accent: "#60a5fa" },
+            { icon: <TargetIcon size={28} />, label: "LEVELS", val: `${completedLevels.length}/20`,              accent: "#a855f7" },
+          ] as const).map((stat) => (
             <div key={stat.label} style={{
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 10, padding: "10px 20px", minWidth: 100,
+              background: "rgba(255,255,255,0.04)",
+              border: `1px solid ${stat.accent}22`,
+              borderRadius: 12, padding: "14px 22px", minWidth: 110,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
             }}>
-              <div style={{ fontSize: 18, marginBottom: 3 }}>{stat.icon}</div>
-              <div style={{ fontSize: 18, fontWeight: "bold", color: "#fff" }}>{stat.val}</div>
-              <div style={{ fontSize: 10, color: "#555", letterSpacing: 2 }}>{stat.label}</div>
+              <div style={{ filter: "drop-shadow(0 0 8px currentColor)" }}>{stat.icon}</div>
+              <div style={{ fontSize: 20, fontWeight: "bold", color: "#fff", lineHeight: 1 }}>{stat.val}</div>
+              <div style={{ fontSize: 9, color: stat.accent, letterSpacing: 3, opacity: 0.8 }}>{stat.label}</div>
             </div>
           ))}
         </div>
