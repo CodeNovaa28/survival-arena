@@ -182,7 +182,7 @@ export default function DailyRewards() {
   const addPerk       = useGameStore((s) => s.addPermanentPerk);
 
   const [tab,        setTab]        = useState<"daily" | "milestones">("daily");
-  const [chestResult,setChestResult]= useState<number | null>(null);
+  const [chestResult,setChestResult]= useState<{coins:number;gems:number}|null>(null);
   const [spinResult, setSpinResult] = useState<number | null>(null);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -193,8 +193,8 @@ export default function DailyRewards() {
 
   const handleChest = () => {
     if (!canChest) return;
-    const reward = claimChest();
-    setChestResult(reward);
+    const result = claimChest();
+    setChestResult(result);
   };
 
   const handleSpin = (prize: number) => {
@@ -271,15 +271,21 @@ export default function DailyRewards() {
               }}>
                 <div style={{ fontSize: 11, color: "#f59e0b", letterSpacing: 3, marginBottom: 12 }}>📦 DAILY CHEST</div>
                 <div style={{ fontSize: 10, color: "#475569", marginBottom: 14, lineHeight: 1.6 }}>
-                  Open once per day for 50–200 free coins. Resets at midnight.
+                  Open once per day for 50–200 free coins. Resets at midnight. 8% chance for bonus 💎 gems!
                 </div>
                 <div style={{ textAlign: "center", marginBottom: 16 }}>
                   <div style={{ fontSize: 52, marginBottom: 8, filter: canChest ? "none" : "grayscale(1) opacity(0.4)" }}>📦</div>
                   {chestResult !== null && (
                     <div style={{
-                      fontSize: 18, fontWeight: "bold", color: "#4ade80",
+                      fontSize: 16, fontWeight: "bold", color: "#4ade80",
                       marginBottom: 8, animation: "fadeIn .3s ease",
-                    }}>+{chestResult} 🪙</div>
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    }}>
+                      <span>+{chestResult.coins} 🪙</span>
+                      {chestResult.gems > 0 && (
+                        <span style={{ color: "#22d3ee", fontSize: 14 }}>+{chestResult.gems} 💎 BONUS!</span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <button

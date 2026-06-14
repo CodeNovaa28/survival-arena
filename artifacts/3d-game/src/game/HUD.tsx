@@ -46,6 +46,7 @@ export default function HUD() {
   const guardianActive       = useGameStore((s) => s.guardianActive);
   const meleeCooldown        = useGameStore((s) => s.meleeCooldown);
   const killStreak           = useGameStore((s) => s.killStreak);
+  const tempWeapon           = useGameStore((s) => s.tempWeapon);
 
   const hpPct     = Math.max(0, (playerHp / maxPlayerHp) * 100);
   const hpColor   = hpPct > 50 ? "#22c55e" : hpPct > 25 ? "#f97316" : "#ef4444";
@@ -172,7 +173,14 @@ export default function HUD() {
             <span> kills</span>
           </div>
           <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.06)", fontSize: 11, color: "#666" }}>
-            {gun.badge} <span style={{ color: "#888" }}>{gun.name}</span>
+            {tempWeapon ? (
+              <span style={{ color: "#f59e0b" }}>
+                {getGun(tempWeapon).badge} <span style={{ color: "#fbbf24" }}>{getGun(tempWeapon).name}</span>
+                <span style={{ color: "#f59e0b", fontSize: 9, marginLeft: 4 }}>TEMP</span>
+              </span>
+            ) : (
+              <span>{gun.badge} <span style={{ color: "#888" }}>{gun.name}</span></span>
+            )}
           </div>
           <div style={{ fontSize: 11, color: "#555" }}>
             {melee.badge} <span style={{ color: "#777" }}>{melee.name}</span>
@@ -257,7 +265,7 @@ export default function HUD() {
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: outside ? "#ef4444" : "#22c55e", boxShadow: `0 0 6px ${outside ? "#ef4444" : "#22c55e"}` }} />
         <span>ZONE {Math.round(safeZoneRadius)}m</span>
         <span style={{ color: "#333" }}>|</span>
-        <span style={{ fontSize: 11, color: "#444" }}>WASD move · Click shoot · F melee · Q drone · E squad</span>
+        <span style={{ fontSize: 11, color: "#444" }}>WASD move · Click shoot · AUTO/F melee · Q drone · E squad</span>
       </div>
 
       <style>{`@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }`}</style>

@@ -23,6 +23,10 @@ import LevelSelectScreen from "./LevelSelectScreen";
 import DailyRewards from "./DailyRewards";
 import PracticeMode from "./PracticeMode";
 import HelpButton from "./HelpButton";
+import SettingsScreen from "./SettingsScreen";
+import Cutscene from "./Cutscene";
+import MinigamesHub from "./MinigamesHub";
+import MapDropItems from "./MapDropItems";
 
 enum Controls {
   forward = "forward", back = "back", left = "left", right = "right",
@@ -60,6 +64,7 @@ function Scene({ mapId }: { mapId: string }) {
       <Companions />
       <MeleeEffect />
       <DamageNumbers />
+      <MapDropItems />
       <GameLogic />
       <CameraController />
     </>
@@ -96,6 +101,9 @@ export default function Game() {
       {phase === "levelselect"   && <LevelSelectScreen />}
       {phase === "dailyrewards"  && <DailyRewards />}
       {phase === "practice"      && <PracticeMode />}
+      {phase === "settings"      && <SettingsScreen />}
+      {phase === "minigames"     && <MinigamesHub />}
+      {phase === "cutscene"      && <Cutscene />}
 
       {showCanvas && (
         <KeyboardControls map={KEY_MAP}>

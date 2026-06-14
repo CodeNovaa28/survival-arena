@@ -6,6 +6,7 @@ export interface CharacterSkin {
   name: string;
   description: string;
   cost: number;
+  gemCost?: number;   // alternative: spend gems instead of coins
   bodyColor: string;
   headColor: string;
   accentColor: string;
@@ -75,7 +76,7 @@ export const CHARACTER_SKINS: CharacterSkin[] = [
   {
     id: "phoenix", name: "Phoenix",
     description: "Fire-born warrior. Burns, but never dies — once.",
-    cost: 800, bodyColor: "#92400e", headColor: "#f97316",
+    cost: 800, gemCost: 8, bodyColor: "#92400e", headColor: "#f97316",
     accentColor: "#fef3c7", legColor: "#7c2d12", tier: "legendary", badge: "🦅",
     perk: "secondLife",
     perkDesc: "💖 Revive once on death with 50% HP",
@@ -83,7 +84,7 @@ export const CHARACTER_SKINS: CharacterSkin[] = [
   {
     id: "commander", name: "War Commander",
     description: "Legendary armor. Worn only by the greatest warriors.",
-    cost: 900, bodyColor: "#064e3b", headColor: "#065f46",
+    cost: 900, gemCost: 10, bodyColor: "#064e3b", headColor: "#065f46",
     accentColor: "#6ee7b7", legColor: "#022c22", tier: "legendary", badge: "⭐",
   },
   {

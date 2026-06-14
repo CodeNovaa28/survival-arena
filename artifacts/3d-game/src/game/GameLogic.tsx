@@ -169,6 +169,10 @@ export default function GameLogic() {
   const meleeHeldRef     = useRef(false);
   const meleeSwingRef    = useRef(false);
 
+  // Map drops
+  const heartDropTimerRef  = useRef(50 + Math.random() * 15);
+  const weaponDropTimerRef = useRef(110 + Math.random() * 30);
+
   useEffect(() => {
     const s   = useGameStore.getState();
     const gun  = getGun(s.selectedGun);
@@ -183,7 +187,9 @@ export default function GameLogic() {
     droneShootRef.current    = 0;
     squadShootRef.current    = 0;
     guardianShootRef.current = 0;
-    meleeCoolRef.current     = 0;
+    meleeCoolRef.current         = 0;
+    heartDropTimerRef.current    = 50 + Math.random() * 15;
+    weaponDropTimerRef.current   = 110 + Math.random() * 30;
 
     // Apply permanent perks
     const perks = s.permanentPerks;
@@ -404,7 +410,11 @@ export default function GameLogic() {
     const meleeDamageMap = new Map<string, number>();
     let meleeTriggered = false;
 
-    if (meleeHeldRef.current && meleeCoolRef.current <= 0) {
+    // Auto-melee: trigger when closest enemy enters range, OR F is held
+    const closestEnemyDist = enemies.reduce((min, en) => Math.min(min, en.position.distanceTo(playerPos)), Infinity);
+    const autoMelee = closestEnemyDist <= meleeWeapon.range + 0.5;
+
+    if ((autoMelee || meleeHeldRef.current) && meleeCoolRef.current <= 0) {
       meleeCoolRef.current = meleeWeapon.cooldown;
       s.setMeleeCooldown(meleeWeapon.cooldown);
       meleeTriggered = true;
@@ -418,8 +428,17 @@ export default function GameLogic() {
 
       // Player facing direction (from velocity or default forward)
       const velLen = Math.sqrt(playerVel.x**2 + playerVel.z**2);
-      const facX   = velLen > 0.1 ? playerVel.x / velLen : 0;
-      const facZ   = velLen > 0.1 ? playerVel.z / velLen : 1;
+      let facX   = velLen > 0.1 ? playerVel.x / velLen : 0;
+      let facZ   = velLen > 0.1 ? playerVel.z / velLen : 1;
+      // Auto-melee: aim toward the closest enemy
+      if (autoMelee) {
+        const cl = enemies.reduce<{dist:number;ex:number;ez:number}>(
+          (a, en) => { const d=en.position.distanceTo(playerPos); return d<a.dist?{dist:d,ex:en.position.x,ez:en.position.z}:a; },
+          { dist:Infinity, ex:playerPos.x, ez:playerPos.z+1 }
+        );
+        const adx=cl.ex-playerPos.x, adz=cl.ez-playerPos.z, al=Math.sqrt(adx*adx+adz*adz)||1;
+        facX=adx/al; facZ=adz/al;
+      }
 
       for (const e of enemies) {
         const dx   = e.position.x - playerPos.x;
@@ -598,6 +617,61 @@ export default function GameLogic() {
       if (obstacleHit(np,obs)) continue;
       if (!b.fromPlayer && np.distanceTo(playerPos)<0.75) { bulletPlayerDmg+=b.damage; continue; }
       movedBullets.push({...b,position:np,lifetime:life});
+    }
+
+    // ── Map drops: spawn + pickup ───────────────────────────────────────────
+    if (gameMode !== "practice") {
+      heartDropTimerRef.current  -= delta;
+      weaponDropTimerRef.current -= delta;
+
+      const currentDrops = s.mapDrops;
+
+      if (heartDropTimerRef.current <= 0) {
+        heartDropTimerRef.current = 45 + Math.random() * 15;
+        if (currentDrops.filter(d => d.type === "heart").length < 2) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = 5 + Math.random() * 14;
+          s.setMapDrops([...currentDrops, {
+            id: `heart_${Date.now()}`,
+            position: new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r),
+            type: "heart",
+          }]);
+        }
+      }
+
+      if (weaponDropTimerRef.current <= 0) {
+        weaponDropTimerRef.current = 100 + Math.random() * 30;
+        if (currentDrops.filter(d => d.type === "weapon").length < 1 && !s.tempWeapon) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = 5 + Math.random() * 14;
+          const dropGunIds = ["rifle", "shotgun", "sniper", "plasma"];
+          const weaponId = dropGunIds[Math.floor(Math.random() * dropGunIds.length)];
+          s.setMapDrops([...currentDrops, {
+            id: `weapon_${Date.now()}`,
+            position: new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r),
+            type: "weapon",
+            weaponId,
+          }]);
+        }
+      }
+
+      // Pickup check
+      if (currentDrops.length > 0) {
+        let changed = false;
+        const remaining = currentDrops.filter(drop => {
+          if (drop.position.distanceTo(playerPos) < 1.5) {
+            if (drop.type === "heart") {
+              s.setPlayerHp(Math.min(s.maxPlayerHp, s.playerHp + 25));
+            } else if (drop.type === "weapon" && drop.weaponId) {
+              s.setTempWeapon(drop.weaponId);
+            }
+            changed = true;
+            return false;
+          }
+          return true;
+        });
+        if (changed) s.setMapDrops(remaining);
+      }
     }
 
     // ── Damage & death ─────────────────────────────────────────────────────

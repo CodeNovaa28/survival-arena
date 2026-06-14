@@ -72,3 +72,23 @@ export function EndlessIcon({ size = 22 }: { size?: number }) {
     </svg>
   );
 }
+
+export function GemIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <polygon points="12,2 20,8 16,22 8,22 4,8" fill="#06b6d4" stroke="#0891b2" strokeWidth="1"/>
+      <polygon points="12,2 20,8 12,6" fill="#67e8f9" opacity="0.85"/>
+      <polygon points="12,6 20,8 16,22 8,22 4,8" fill="#0e7490" opacity="0.5"/>
+      <ellipse cx="11" cy="9" rx="2.5" ry="1.2" fill="#fff" opacity="0.35"/>
+    </svg>
+  );
+}
+
+export function HeartIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <path d="M12 20s-8.5-5.4-8.5-11A5 5 0 0 1 12 5.8 5 5 0 0 1 20.5 9c0 5.6-8.5 11-8.5 11z" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.8"/>
+      <ellipse cx="10" cy="9.5" rx="2.5" ry="1.5" fill="#fff" opacity="0.3"/>
+    </svg>
+  );
+}

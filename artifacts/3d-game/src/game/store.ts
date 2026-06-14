@@ -3,7 +3,7 @@ import * as THREE from "three";
 
 export type GamePhase =
   | "start" | "customization" | "levelselect" | "playing" | "gameover"
-  | "dailyrewards" | "practice";
+  | "dailyrewards" | "practice" | "settings" | "minigames" | "cutscene";
 
 export type EnemyType = "chaser" | "tank" | "ranged" | "speeder" | "bomber";
 export type PowerUpType = "speed" | "shield" | "rapidfire" | "heal" | "drone";
@@ -34,6 +34,14 @@ export interface DailyQuest {
   progress: number;
   reward: number;
   claimed: boolean;
+}
+
+export interface MapDrop {
+  id: string;
+  position: THREE.Vector3;
+  type: "heart" | "weapon";
+  weaponId?: string;
+  lifetime: number;
 }
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
@@ -93,6 +101,8 @@ function generateDailyQuests(dateKey: string): DailyQuest[] {
 interface GameState {
   // Persistent
   coins: number;
+  gems: number;
+  storyEnabled: boolean;
   ownedSkins: string[];  selectedSkin: string;
   ownedGuns: string[];   selectedGun: string;
   ownedMaps: string[];   selectedMap: string;
@@ -130,6 +140,10 @@ interface GameState {
   killStreak: number;
   damageEvents: DamageEvent[];
 
+  // Session – map drops & temp items
+  tempWeapon: string | null;
+  mapDrops: MapDrop[];
+
   // Setters
   setPhase: (p: GamePhase) => void;
   setPlayerHp: (hp: number) => void; setMaxPlayerHp: (hp: number) => void;
@@ -147,6 +161,8 @@ interface GameState {
   setMeleeCooldown: (n: number) => void; setMeleeSwinging: (b: boolean) => void;
   setKillStreak: (n: number) => void;
   addDamageEvent: (e: DamageEvent) => void;
+  setTempWeapon: (id: string | null) => void;
+  setMapDrops: (drops: MapDrop[]) => void;
 
   // Progression
   addSessionCoins: (n: number) => void;
@@ -156,21 +172,29 @@ interface GameState {
   purchaseGun: (id: string, cost: number) => boolean;   selectGun: (id: string) => void;
   purchaseMap: (id: string, cost: number) => boolean;   selectMap: (id: string) => void;
   purchaseMelee: (id: string, cost: number) => boolean; selectMelee: (id: string) => void;
+  purchaseSkinWithGems: (id: string, gemCost: number) => boolean;
+  purchaseGunWithGems: (id: string, gemCost: number) => boolean;
+  purchaseMapWithGems: (id: string, gemCost: number) => boolean;
+  purchaseMeleeWithGems: (id: string, gemCost: number) => boolean;
   setMusicVolume: (v: number) => void; setSfxVolume: (v: number) => void;
+  setStoryEnabled: (b: boolean) => void;
+  addCoins: (n: number) => void;
+  addGems: (n: number) => void;
+  spendGems: (n: number) => boolean;
   finishGame: () => void;
   completeLevel: (levelId: number, reward: number) => void;
   restart: () => void;
 
   // Daily system
-  claimDailyChest: () => number;
+  claimDailyChest: () => { coins: number; gems: number };
   claimDailySpin: (coins: number) => void;
+  claimDailySpinGems: (gems: number) => void;
   updateQuestProgress: (type: DailyQuest["type"], value: number) => void;
   claimQuestReward: (questId: string) => void;
   refreshDailyQuestsIfNeeded: () => void;
 
   // Milestones
   addPermanentPerk: (perk: string) => void;
-  addCoins: (n: number) => void;
 }
 
 const INITIAL_SESSION = {
@@ -186,11 +210,15 @@ const INITIAL_SESSION = {
   reviveAvailable: false, reviveUsed: false, guardianActive: false,
   meleeCooldown: 0, meleeSwinging: false,
   killStreak: 0, damageEvents: [] as DamageEvent[],
+  tempWeapon: null as string | null,
+  mapDrops: [] as MapDrop[],
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
   // Persistent
-  coins:                 load("zb_coins", 0),
+  coins:                 load("zb_coins",  0),
+  gems:                  load("zb_gems",   0),
+  storyEnabled:          load("zb_story",  false),
   ownedSkins:            load("zb_skins",   ["soldier"]),
   selectedSkin:          load("zb_skin",    "soldier"),
   ownedGuns:             load("zb_guns",    ["pistol"]),
@@ -240,6 +268,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMeleeCooldown:  (n)        => set({ meleeCooldown: n }),
   setMeleeSwinging:  (b)        => set({ meleeSwinging: b }),
   setKillStreak:     (n)        => set({ killStreak: n }),
+  setTempWeapon:     (id)       => set({ tempWeapon: id }),
+  setMapDrops:       (drops)    => set({ mapDrops: drops }),
 
   addDamageEvent: (e) => {
     set((s) => ({ damageEvents: [...s.damageEvents.slice(-18), e] }));
@@ -270,6 +300,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   selectSkin: (id) => { save("zb_skin", id); set({ selectedSkin: id }); },
 
+  purchaseSkinWithGems: (id, gemCost) => {
+    const s = get();
+    if (s.ownedSkins.includes(id)) return true;
+    if (s.gems < gemCost) return false;
+    const gems = s.gems - gemCost; const ownedSkins = [...s.ownedSkins, id];
+    save("zb_gems", gems); save("zb_skins", ownedSkins);
+    set({ gems, ownedSkins }); return true;
+  },
+
   purchaseGun: (id, cost) => {
     const s = get();
     if (s.ownedGuns.includes(id)) return true;
@@ -279,6 +318,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ coins, ownedGuns }); return true;
   },
   selectGun: (id) => { save("zb_gun", id); set({ selectedGun: id }); },
+
+  purchaseGunWithGems: (id, gemCost) => {
+    const s = get();
+    if (s.ownedGuns.includes(id)) return true;
+    if (s.gems < gemCost) return false;
+    const gems = s.gems - gemCost; const ownedGuns = [...s.ownedGuns, id];
+    save("zb_gems", gems); save("zb_guns", ownedGuns);
+    set({ gems, ownedGuns }); return true;
+  },
 
   purchaseMap: (id, cost) => {
     const s = get();
@@ -290,6 +338,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   selectMap: (id) => { save("zb_map", id); set({ selectedMap: id }); },
 
+  purchaseMapWithGems: (id, gemCost) => {
+    const s = get();
+    if (s.ownedMaps.includes(id)) return true;
+    if (s.gems < gemCost) return false;
+    const gems = s.gems - gemCost; const ownedMaps = [...s.ownedMaps, id];
+    save("zb_gems", gems); save("zb_maps", ownedMaps);
+    set({ gems, ownedMaps }); return true;
+  },
+
   purchaseMelee: (id, cost) => {
     const s = get();
     if (s.ownedMelees.includes(id)) return true;
@@ -300,14 +357,32 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   selectMelee: (id) => { save("zb_melee", id); set({ selectedMelee: id }); },
 
-  setMusicVolume: (v) => { save("zb_mvol", v); set({ musicVolume: v }); },
-  setSfxVolume:   (v) => { save("zb_svol", v); set({ sfxVolume: v }); },
+  purchaseMeleeWithGems: (id, gemCost) => {
+    const s = get();
+    if (s.ownedMelees.includes(id)) return true;
+    if (s.gems < gemCost) return false;
+    const gems = s.gems - gemCost; const ownedMelees = [...s.ownedMelees, id];
+    save("zb_gems", gems); save("zb_melees", ownedMelees);
+    set({ gems, ownedMelees }); return true;
+  },
+
+  setMusicVolume:  (v) => { save("zb_mvol", v); set({ musicVolume: v }); },
+  setSfxVolume:    (v) => { save("zb_svol", v); set({ sfxVolume: v }); },
+  setStoryEnabled: (b) => { save("zb_story", b); set({ storyEnabled: b }); },
 
   addCoins: (n) => {
+    const s = get(); const coins = s.coins + n;
+    save("zb_coins", coins); set({ coins });
+  },
+  addGems: (n) => {
+    const s = get(); const gems = s.gems + n;
+    save("zb_gems", gems); set({ gems });
+  },
+  spendGems: (n) => {
     const s = get();
-    const coins = s.coins + n;
-    save("zb_coins", coins);
-    set({ coins });
+    if (s.gems < n) return false;
+    const gems = s.gems - n;
+    save("zb_gems", gems); set({ gems }); return true;
   },
 
   finishGame: () => {
@@ -316,7 +391,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     const highScore         = Math.max(s.timeSurvived, s.highScore);
     const totalCoinsEarned  = s.totalCoinsEarned + s.sessionCoins;
     save("zb_coins", coins); save("zb_hs", highScore); save("zb_tce", totalCoinsEarned);
-    // Update quest progress
     const quests = s.dailyQuests.map((q) => {
       const upd = { ...q };
       if (q.type === "kills")   upd.progress = Math.max(q.progress, Math.min(q.goal, s.killCount));
@@ -326,7 +400,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       return upd;
     });
     save("zb_quests", quests);
-    set({ phase: "gameover", levelWon: false, coins, highScore, totalCoinsEarned, dailyQuests: quests });
+    set({ phase: "gameover", levelWon: false, coins, highScore, totalCoinsEarned,
+      dailyQuests: quests, tempWeapon: null, mapDrops: [] });
   },
 
   completeLevel: (levelId, reward) => {
@@ -344,7 +419,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       ownedSkins = [...ownedSkins, "ghost_squad"];
       save("zb_skins", ownedSkins);
     }
-    // Update quest progress
     const quests = s.dailyQuests.map((q) => {
       const upd = { ...q };
       if (q.type === "kills")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.killCount));
@@ -361,21 +435,25 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     set({ phase: "gameover", levelWon: true, coins, completedLevels,
       highestUnlockedLevel, highestCompletedLevel, highScore, ownedSkins,
-      totalCoinsEarned, dailyQuests: quests });
+      totalCoinsEarned, dailyQuests: quests, tempWeapon: null, mapDrops: [] });
   },
 
   restart: () => set((s) => ({
     ...INITIAL_SESSION, phase: "playing", gameKey: s.gameKey + 1,
   })),
 
-  // Daily chest
+  // Daily chest — 8% chance of 1–3 bonus gems
   claimDailyChest: () => {
-    const reward = 50 + Math.floor(Math.random() * 151);
-    const coins = get().coins + reward;
+    const s = get();
+    const coins    = 50 + Math.floor(Math.random() * 151);
+    const gemBonus = Math.random() < 0.08 ? 1 + Math.floor(Math.random() * 3) : 0;
+    const newCoins = s.coins + coins;
+    const newGems  = s.gems + gemBonus;
     const lastDailyChest = getTodayKey();
-    save("zb_coins", coins); save("zb_chest", lastDailyChest);
-    set({ coins, lastDailyChest });
-    return reward;
+    save("zb_coins", newCoins); save("zb_chest", lastDailyChest);
+    if (gemBonus > 0) save("zb_gems", newGems);
+    set({ coins: newCoins, gems: newGems, lastDailyChest });
+    return { coins, gems: gemBonus };
   },
 
   // Spin reward (coins already calculated by SpinWheel)
@@ -385,6 +463,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newCoins = get().coins + coins;
     save("zb_coins", newCoins);
     set({ lastDailySpin, coins: newCoins });
+  },
+
+  // Spin gem reward
+  claimDailySpinGems: (gems) => {
+    const newGems = get().gems + gems;
+    save("zb_gems", newGems);
+    set({ gems: newGems });
   },
 
   updateQuestProgress: (type, value) => {

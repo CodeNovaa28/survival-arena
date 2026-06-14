@@ -30,6 +30,7 @@ export interface MapDef {
   description: string;
   unlockType: MapUnlockType;
   coinCost?: number;
+  gemCost?: number;
   killRequirement?: { type: EnemyType; count: number };
   theme: MapTheme;
   obstacles: ObstacleDef[];
@@ -313,6 +314,7 @@ export const MAPS: MapDef[] = [
     description: "A blazing cyberpunk grid. Tall towers, tight alleys, and danger everywhere.",
     unlockType: "coins",
     coinCost: 500,
+    gemCost: 8,
     badge: "🌆",
     theme: {
       groundColor:      "#050510",

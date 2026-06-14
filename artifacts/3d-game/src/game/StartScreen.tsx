@@ -12,6 +12,7 @@ function formatTime(s: number) {
 export default function StartScreen() {
   const highScore              = useGameStore((s) => s.highScore);
   const coins                  = useGameStore((s) => s.coins);
+  const gems                   = useGameStore((s) => s.gems);
   const highestUnlockedLevel   = useGameStore((s) => s.highestUnlockedLevel);
   const completedLevels        = useGameStore((s) => s.completedLevels);
   const musicVolume            = useGameStore((s) => s.musicVolume);
@@ -127,9 +128,10 @@ export default function StartScreen() {
           flexWrap: "wrap",
         }}>
           {([
-            { icon: "🪙", label: "COINS",  val: coins.toString(),                          accent: "#f59e0b" },
+            { icon: "🪙", label: "COINS",  val: coins.toString(),                             accent: "#f59e0b" },
+            { icon: "💎", label: "GEMS",   val: gems.toString(),                              accent: "#06b6d4" },
             { icon: "⏱",  label: "BEST",   val: highScore > 0 ? formatTime(highScore) : "—", accent: "#60a5fa" },
-            { icon: "🎯", label: "LEVELS", val: `${completedLevels.length}/20`,              accent: "#a855f7" },
+            { icon: "🎯", label: "LEVELS", val: `${completedLevels.length}/20`,               accent: "#a855f7" },
           ] as const).map((stat) => (
             <div key={stat.label} style={{
               background: "rgba(255,255,255,0.04)",
@@ -209,6 +211,32 @@ export default function StartScreen() {
             )}
             📅 DAILY REWARDS
           </button>
+
+          <button
+            onClick={() => setPhase("minigames")}
+            style={{
+              background: "rgba(6,182,212,0.07)",
+              color: "#67e8f9", border: "1px solid rgba(6,182,212,0.2)",
+              borderRadius: 10, padding: "13px 0", fontSize: 13,
+              fontFamily: "'Courier New', monospace", letterSpacing: 2,
+              cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(6,182,212,0.14)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(6,182,212,0.07)"; }}
+          >🎮 MINIGAMES</button>
+
+          <button
+            onClick={() => setPhase("settings")}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              color: "#94a3b8", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 10, padding: "13px 0", fontSize: 13,
+              fontFamily: "'Courier New', monospace", letterSpacing: 2,
+              cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#94a3b8"; }}
+          >⚙ SETTINGS</button>
         </div>
 
         {/* Milestone perk notification */}

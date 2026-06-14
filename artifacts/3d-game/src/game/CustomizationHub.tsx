@@ -11,6 +11,8 @@ type Tab = "character" | "guns" | "maps" | "melee";
 export default function CustomizationHub() {
   const [tab, setTab] = useState<Tab>("character");
   const setPhase = useGameStore((s) => s.setPhase);
+  const coins    = useGameStore((s) => s.coins);
+  const gems     = useGameStore((s) => s.gems);
 
   return (
     <div style={{
@@ -41,12 +43,16 @@ export default function CustomizationHub() {
           <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: 4 }}>CUSTOMIZE</div>
         </div>
 
-        {/* Coin display */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 20 }}>🪙</span>
-          <span style={{ fontSize: 20, fontWeight: "bold", color: "#f59e0b" }}>
-            {useGameStore.getState().coins}
-          </span>
+        {/* Currency display */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 18 }}>🪙</span>
+            <span style={{ fontSize: 18, fontWeight: "bold", color: "#f59e0b" }}>{coins}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 18 }}>💎</span>
+            <span style={{ fontSize: 18, fontWeight: "bold", color: "#22d3ee" }}>{gems}</span>
+          </div>
         </div>
       </div>
 
@@ -98,10 +104,12 @@ export default function CustomizationHub() {
 // ─── Character tab ─────────────────────────────────────────────────────────────
 function CharacterTab() {
   const coins                = useGameStore((s) => s.coins);
+  const gems                 = useGameStore((s) => s.gems);
   const ownedSkins           = useGameStore((s) => s.ownedSkins);
   const selectedSkin         = useGameStore((s) => s.selectedSkin);
   const highestCompletedLevel= useGameStore((s) => s.highestCompletedLevel);
   const purchaseSkin         = useGameStore((s) => s.purchaseSkin);
+  const purchaseSkinWithGems = useGameStore((s) => s.purchaseSkinWithGems);
   const selectSkin           = useGameStore((s) => s.selectSkin);
 
   return (
@@ -212,13 +220,33 @@ function CharacterTab() {
                 style={shopBtnStyle("#14532d", "#22c55e")}
               >UNLOCK FREE</button>
             ) : canBuy ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button
+                  onClick={() => { if (purchaseSkin(skin.id, skin.cost)) { selectSkin(skin.id); playPurchase(); } }}
+                  style={shopBtnStyle("#78350f", "#f59e0b")}
+                >🪙 {skin.cost}</button>
+                {skin.gemCost && gems >= skin.gemCost && (
+                  <button
+                    onClick={() => { if (purchaseSkinWithGems(skin.id)) { selectSkin(skin.id); playPurchase(); } }}
+                    style={shopBtnStyle("#0c4a6e", "#22d3ee")}
+                  >💎 {skin.gemCost} gems</button>
+                )}
+              </div>
+            ) : skin.gemCost && gems >= skin.gemCost ? (
               <button
-                onClick={() => { if (purchaseSkin(skin.id, skin.cost)) { selectSkin(skin.id); playPurchase(); } }}
-                style={shopBtnStyle("#78350f", "#f59e0b")}
-              >🪙 {skin.cost}</button>
+                onClick={() => { if (purchaseSkinWithGems(skin.id)) { selectSkin(skin.id); playPurchase(); } }}
+                style={shopBtnStyle("#0c4a6e", "#22d3ee")}
+              >💎 {skin.gemCost} gems</button>
             ) : (
-              <div style={{ fontSize: 11, color: "#555" }}>
-                🪙 {skin.cost} <span style={{ color: "#333" }}>· Need {skin.cost - coins} more</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ fontSize: 11, color: "#555" }}>
+                  🪙 {skin.cost} <span style={{ color: "#333" }}>· Need {skin.cost - coins} more</span>
+                </div>
+                {skin.gemCost && (
+                  <div style={{ fontSize: 11, color: "#335" }}>
+                    💎 {skin.gemCost} <span style={{ color: "#334" }}>· Need {skin.gemCost - gems} more gems</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -327,12 +355,14 @@ function GunsTab() {
 
 // ─── Maps tab ─────────────────────────────────────────────────────────────────
 function MapsTab() {
-  const coins          = useGameStore((s) => s.coins);
-  const ownedMaps      = useGameStore((s) => s.ownedMaps);
-  const selectedMap    = useGameStore((s) => s.selectedMap);
-  const totalKills     = useGameStore((s) => s.totalKillsByType);
-  const purchaseMap    = useGameStore((s) => s.purchaseMap);
-  const selectMap      = useGameStore((s) => s.selectMap);
+  const coins               = useGameStore((s) => s.coins);
+  const gems                = useGameStore((s) => s.gems);
+  const ownedMaps           = useGameStore((s) => s.ownedMaps);
+  const selectedMap         = useGameStore((s) => s.selectedMap);
+  const totalKills          = useGameStore((s) => s.totalKillsByType);
+  const purchaseMap         = useGameStore((s) => s.purchaseMap);
+  const purchaseMapWithGems = useGameStore((s) => s.purchaseMapWithGems);
+  const selectMap           = useGameStore((s) => s.selectMap);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
@@ -409,10 +439,23 @@ function MapsTab() {
                 SELECT
               </button>
             ) : map.unlockType === "coins" && coins >= (map.coinCost ?? 0) ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button
+                  onClick={() => { if (purchaseMap(map.id, map.coinCost ?? 0)) { selectMap(map.id); playPurchase(); } }}
+                  style={shopBtnStyle("#78350f", "#f59e0b")}
+                >🪙 {map.coinCost}</button>
+                {map.gemCost && gems >= map.gemCost && (
+                  <button
+                    onClick={() => { if (purchaseMapWithGems(map.id)) { selectMap(map.id); playPurchase(); } }}
+                    style={shopBtnStyle("#0c4a6e", "#22d3ee")}
+                  >💎 {map.gemCost} gems</button>
+                )}
+              </div>
+            ) : map.gemCost && gems >= map.gemCost ? (
               <button
-                onClick={() => { if (purchaseMap(map.id, map.coinCost ?? 0)) { selectMap(map.id); playPurchase(); } }}
-                style={shopBtnStyle("#78350f", "#f59e0b")}
-              >🪙 {map.coinCost}</button>
+                onClick={() => { if (purchaseMapWithGems(map.id)) { selectMap(map.id); playPurchase(); } }}
+                style={shopBtnStyle("#0c4a6e", "#22d3ee")}
+              >💎 {map.gemCost} gems</button>
             ) : (
               <div style={{ fontSize: 11, color: "#444" }}>🔒 Locked</div>
             )}
@@ -440,8 +483,8 @@ function MeleeTab() {
         display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#fb923c",
       }}>
         <span style={{ fontSize: 18 }}>⚔️</span>
-        <span>Press <strong>F</strong> to swing your melee weapon in combat.
-          Chainsaw: hold F. Critical hits (15% chance) deal 2× damage.
+        <span>Auto-swings when enemies enter range · Press <strong>F</strong> for instant swing.
+          Critical hits (15% chance) deal 2× damage.
         </span>
       </div>
 

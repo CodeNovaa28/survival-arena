@@ -8,6 +8,7 @@ export default function LevelSelectScreen() {
   const highestUnlockedLevel = useGameStore((s) => s.highestUnlockedLevel);
   const completedLevels      = useGameStore((s) => s.completedLevels);
   const musicVolume          = useGameStore((s) => s.musicVolume);
+  const storyEnabled         = useGameStore((s) => s.storyEnabled);
   const setPhase             = useGameStore((s) => s.setPhase);
   const setGameMode          = useGameStore((s) => s.setGameMode);
   const setCurrentLevel      = useGameStore((s) => s.setCurrentLevel);
@@ -19,7 +20,11 @@ export default function LevelSelectScreen() {
     initMusic(musicVolume);
     setGameMode("levels");
     setCurrentLevel(levelId);
-    restart();
+    if (storyEnabled) {
+      setPhase("cutscene");
+    } else {
+      restart();
+    }
   };
 
   return (

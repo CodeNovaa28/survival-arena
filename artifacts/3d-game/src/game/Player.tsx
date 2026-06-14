@@ -53,7 +53,7 @@ export default function Player() {
 
       updateAim(cx, cy);
 
-      const gun     = getGun(store.selectedGun);
+      const gun     = getGun(store.tempWeapon ?? store.selectedGun);
       const hasRapid= store.activePowerUps.some((p) => p.type === "rapidfire");
       const cd      = hasRapid ? gun.fireRate * 0.4 : gun.fireRate;
       cooldownRef.current = cd;
