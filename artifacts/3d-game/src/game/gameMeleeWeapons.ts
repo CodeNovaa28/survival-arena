@@ -25,6 +25,13 @@ export const MELEE_WEAPONS: MeleeWeapon[] = [
     badge: "✊", color: "#f97316",
   },
   {
+    id: "baton", name: "Iron Baton",
+    description: "A heavy police baton. Free, fast, and hits harder than bare fists.",
+    cost: 0, tier: "basic",
+    damage: 42, range: 1.7, cooldown: 0.38, aoe: false, swingArc: 110,
+    badge: "🏑", color: "#94a3b8",
+  },
+  {
     id: "knife", name: "Combat Knife",
     description: "Fast, silent, deadly. Strike before they can react.",
     cost: 120, tier: "basic",

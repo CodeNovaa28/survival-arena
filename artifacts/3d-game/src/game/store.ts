@@ -2,7 +2,8 @@ import { create } from "zustand";
 import * as THREE from "three";
 
 export type GamePhase =
-  | "start" | "customization" | "levelselect" | "playing" | "gameover";
+  | "start" | "customization" | "levelselect" | "playing" | "gameover"
+  | "dailyrewards" | "practice";
 
 export type EnemyType = "chaser" | "tank" | "ranged" | "speeder" | "bomber";
 export type PowerUpType = "speed" | "shield" | "rapidfire" | "heal" | "drone";
@@ -25,6 +26,16 @@ export interface DamageEvent {
   id: string; x: number; z: number; value: number; crit: boolean; melee: boolean;
 }
 
+export interface DailyQuest {
+  id: string;
+  type: "kills" | "survive" | "coins" | "waves";
+  description: string;
+  goal: number;
+  progress: number;
+  reward: number;
+  claimed: boolean;
+}
+
 // ─── Persistence ─────────────────────────────────────────────────────────────
 function load<T>(key: string, fallback: T): T {
   try { const v = localStorage.getItem(key); return v !== null ? (JSON.parse(v) as T) : fallback; }
@@ -32,6 +43,50 @@ function load<T>(key: string, fallback: T): T {
 }
 function save<T>(key: string, val: T) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+// ─── Milestone definitions ────────────────────────────────────────────────────
+export const MILESTONES = [
+  { coins: 100,   perk: "extra_hp",     label: "+25 Max HP",              desc: "Every run starts with 125 HP" },
+  { coins: 300,   perk: "start_rapid",  label: "Rapid Fire Start",        desc: "Begin each run with 8s Rapid Fire" },
+  { coins: 700,   perk: "companion_5s", label: "Squad Backup Start",      desc: "Begin each run with 5s Squad Backup" },
+  { coins: 1500,  perk: "start_shield", label: "Shield Start",            desc: "Begin each run with 8s Shield" },
+  { coins: 3000,  perk: "second_life",  label: "Permanent Second Life",   desc: "Revive once every run at 50% HP" },
+  { coins: 6000,  perk: "q_always",     label: "Drone Unlocked Always",   desc: "Q ability available regardless of level" },
+  { coins: 12000, perk: "start_drone",  label: "Drone Strike Start",      desc: "Begin each run with 10s Drone Strike" },
+  { coins: 25000, perk: "lightning",    label: "Lightning Perk",          desc: "Periodic lightning strikes near player" },
+];
+
+// ─── Daily quest pool ─────────────────────────────────────────────────────────
+const QUEST_POOL: Omit<DailyQuest, "progress" | "claimed">[] = [
+  { id: "q_kills_25",   type: "kills",   description: "Eliminate 25 enemies",          goal: 25,  reward: 60  },
+  { id: "q_kills_50",   type: "kills",   description: "Eliminate 50 enemies",          goal: 50,  reward: 120 },
+  { id: "q_kills_100",  type: "kills",   description: "Eliminate 100 enemies",         goal: 100, reward: 220 },
+  { id: "q_survive_90", type: "survive", description: "Survive 1 min 30s in Endless",  goal: 90,  reward: 75  },
+  { id: "q_survive_3m", type: "survive", description: "Survive 3 minutes in Endless",  goal: 180, reward: 150 },
+  { id: "q_survive_5m", type: "survive", description: "Survive 5 minutes in Endless",  goal: 300, reward: 250 },
+  { id: "q_coins_80",   type: "coins",   description: "Collect 80 coins in one run",   goal: 80,  reward: 70  },
+  { id: "q_coins_200",  type: "coins",   description: "Collect 200 coins in one run",  goal: 200, reward: 160 },
+  { id: "q_waves_5",    type: "waves",   description: "Reach Wave 5 in Endless",       goal: 5,   reward: 65  },
+  { id: "q_waves_10",   type: "waves",   description: "Reach Wave 10 in Endless",      goal: 10,  reward: 170 },
+];
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function generateDailyQuests(dateKey: string): DailyQuest[] {
+  const seed = dateKey.split("-").reduce((a, b) => a + parseInt(b), 0);
+  const pool = [...QUEST_POOL];
+  const picked: typeof QUEST_POOL = [];
+  let s = seed;
+  while (picked.length < 3 && pool.length > 0) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const idx = Math.abs(s) % pool.length;
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked.map((q) => ({ ...q, progress: 0, claimed: false }));
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -47,10 +102,16 @@ interface GameState {
   completedLevels: number[];
   totalKillsByType: Partial<Record<EnemyType, number>>;
   musicVolume: number; sfxVolume: number; highScore: number;
+  totalCoinsEarned: number;
+  permanentPerks: string[];
+  lastDailyChest: string;
+  lastDailySpin: string;
+  dailyQuests: DailyQuest[];
+  dailyQuestsDate: string;
 
   // Session – general
   phase: GamePhase; gameKey: number;
-  gameMode: "endless" | "levels"; currentLevel: number;
+  gameMode: "endless" | "levels" | "practice"; currentLevel: number;
   sessionCoins: number; paused: boolean; levelWon: boolean;
 
   // Session – in-game
@@ -71,13 +132,14 @@ interface GameState {
 
   // Setters
   setPhase: (p: GamePhase) => void;
-  setPlayerHp: (hp: number) => void; setTimeSurvived: (t: number) => void;
+  setPlayerHp: (hp: number) => void; setMaxPlayerHp: (hp: number) => void;
+  setTimeSurvived: (t: number) => void;
   setWave: (w: number) => void; setKillCount: (n: number) => void;
   setEnemies: (e: Enemy[]) => void; setBullets: (b: Bullet[]) => void;
   setPowerUpItems: (p: PowerUpItem[]) => void; setActivePowerUps: (p: ActivePowerUp[]) => void;
   setSafeZoneRadius: (r: number) => void; setPlayerPosition: (p: THREE.Vector3) => void;
   setPlayerVelocity: (v: THREE.Vector3) => void;
-  setPaused: (p: boolean) => void; setGameMode: (m: "endless" | "levels") => void;
+  setPaused: (p: boolean) => void; setGameMode: (m: "endless" | "levels" | "practice") => void;
   setCurrentLevel: (l: number) => void;
   setDroneAbility: (active: boolean, timer: number, cd: number) => void;
   setSquadAbility: (active: boolean, timer: number, cd: number) => void;
@@ -98,11 +160,22 @@ interface GameState {
   finishGame: () => void;
   completeLevel: (levelId: number, reward: number) => void;
   restart: () => void;
+
+  // Daily system
+  claimDailyChest: () => number;
+  claimDailySpin: (coins: number) => void;
+  updateQuestProgress: (type: DailyQuest["type"], value: number) => void;
+  claimQuestReward: (questId: string) => void;
+  refreshDailyQuestsIfNeeded: () => void;
+
+  // Milestones
+  addPermanentPerk: (perk: string) => void;
+  addCoins: (n: number) => void;
 }
 
 const INITIAL_SESSION = {
   phase:        "start" as GamePhase, gameKey: 0,
-  gameMode:     "endless" as "endless" | "levels", currentLevel: 1,
+  gameMode:     "endless" as "endless" | "levels" | "practice", currentLevel: 1,
   sessionCoins: 0, paused: false, levelWon: false,
   playerHp: 100, maxPlayerHp: 100, timeSurvived: 0, wave: 1, killCount: 0,
   enemies: [] as Enemy[], bullets: [] as Bullet[],
@@ -133,6 +206,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   musicVolume:           load("zb_mvol",    0.35),
   sfxVolume:             load("zb_svol",    0.7),
   highScore:             load("zb_hs",      0),
+  totalCoinsEarned:      load("zb_tce",     0),
+  permanentPerks:        load("zb_perks",   []) as string[],
+  lastDailyChest:        load("zb_chest",   ""),
+  lastDailySpin:         load("zb_spin",    ""),
+  dailyQuests:           load("zb_quests",  []) as DailyQuest[],
+  dailyQuestsDate:       load("zb_qdate",   ""),
 
   // Session
   ...INITIAL_SESSION,
@@ -140,6 +219,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Setters
   setPhase:          (phase)    => set({ phase }),
   setPlayerHp:       (playerHp) => set({ playerHp }),
+  setMaxPlayerHp:    (maxPlayerHp) => set({ maxPlayerHp }),
   setTimeSurvived:   (t)        => set({ timeSurvived: t }),
   setWave:           (wave)     => set({ wave }),
   setKillCount:      (killCount)=> set({ killCount }),
@@ -223,12 +303,30 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMusicVolume: (v) => { save("zb_mvol", v); set({ musicVolume: v }); },
   setSfxVolume:   (v) => { save("zb_svol", v); set({ sfxVolume: v }); },
 
+  addCoins: (n) => {
+    const s = get();
+    const coins = s.coins + n;
+    save("zb_coins", coins);
+    set({ coins });
+  },
+
   finishGame: () => {
     const s = get();
-    const coins     = s.coins + s.sessionCoins;
-    const highScore = Math.max(s.timeSurvived, s.highScore);
-    save("zb_coins", coins); save("zb_hs", highScore);
-    set({ phase: "gameover", levelWon: false, coins, highScore });
+    const coins             = s.coins + s.sessionCoins;
+    const highScore         = Math.max(s.timeSurvived, s.highScore);
+    const totalCoinsEarned  = s.totalCoinsEarned + s.sessionCoins;
+    save("zb_coins", coins); save("zb_hs", highScore); save("zb_tce", totalCoinsEarned);
+    // Update quest progress
+    const quests = s.dailyQuests.map((q) => {
+      const upd = { ...q };
+      if (q.type === "kills")   upd.progress = Math.max(q.progress, Math.min(q.goal, s.killCount));
+      if (q.type === "survive" && s.gameMode === "endless") upd.progress = Math.max(q.progress, Math.min(q.goal, s.timeSurvived));
+      if (q.type === "coins")   upd.progress = Math.max(q.progress, Math.min(q.goal, s.sessionCoins));
+      if (q.type === "waves")   upd.progress = Math.max(q.progress, Math.min(q.goal, s.wave));
+      return upd;
+    });
+    save("zb_quests", quests);
+    set({ phase: "gameover", levelWon: false, coins, highScore, totalCoinsEarned, dailyQuests: quests });
   },
 
   completeLevel: (levelId, reward) => {
@@ -239,22 +337,92 @@ export const useGameStore = create<GameState>((set, get) => ({
     const highestUnlockedLevel  = Math.max(s.highestUnlockedLevel, levelId + 1);
     const highestCompletedLevel = Math.max(s.highestCompletedLevel, levelId);
     const highScore             = Math.max(s.timeSurvived, s.highScore);
+    const totalCoinsEarned      = s.totalCoinsEarned + s.sessionCoins + reward;
 
     let ownedSkins = s.ownedSkins;
     if (levelId >= 15 && !ownedSkins.includes("ghost_squad")) {
       ownedSkins = [...ownedSkins, "ghost_squad"];
       save("zb_skins", ownedSkins);
     }
+    // Update quest progress
+    const quests = s.dailyQuests.map((q) => {
+      const upd = { ...q };
+      if (q.type === "kills")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.killCount));
+      if (q.type === "coins")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.sessionCoins + reward));
+      if (q.type === "waves")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.wave));
+      return upd;
+    });
+    save("zb_quests", quests);
     save("zb_coins", coins); save("zb_done", completedLevels);
     save("zb_lvl",   highestUnlockedLevel);
     save("zb_hcl",   highestCompletedLevel);
     save("zb_hs",    highScore);
+    save("zb_tce",   totalCoinsEarned);
 
     set({ phase: "gameover", levelWon: true, coins, completedLevels,
-      highestUnlockedLevel, highestCompletedLevel, highScore, ownedSkins });
+      highestUnlockedLevel, highestCompletedLevel, highScore, ownedSkins,
+      totalCoinsEarned, dailyQuests: quests });
   },
 
   restart: () => set((s) => ({
     ...INITIAL_SESSION, phase: "playing", gameKey: s.gameKey + 1,
   })),
+
+  // Daily chest
+  claimDailyChest: () => {
+    const reward = 50 + Math.floor(Math.random() * 151);
+    const coins = get().coins + reward;
+    const lastDailyChest = getTodayKey();
+    save("zb_coins", coins); save("zb_chest", lastDailyChest);
+    set({ coins, lastDailyChest });
+    return reward;
+  },
+
+  // Spin reward (coins already calculated by SpinWheel)
+  claimDailySpin: (coins) => {
+    const lastDailySpin = getTodayKey();
+    save("zb_spin", lastDailySpin);
+    const newCoins = get().coins + coins;
+    save("zb_coins", newCoins);
+    set({ lastDailySpin, coins: newCoins });
+  },
+
+  updateQuestProgress: (type, value) => {
+    const quests = get().dailyQuests.map((q) => {
+      if (q.type !== type) return q;
+      return { ...q, progress: Math.max(q.progress, Math.min(q.goal, value)) };
+    });
+    save("zb_quests", quests);
+    set({ dailyQuests: quests });
+  },
+
+  claimQuestReward: (questId) => {
+    const quests = get().dailyQuests.map((q) =>
+      q.id === questId ? { ...q, claimed: true } : q,
+    );
+    const quest = quests.find((q) => q.id === questId);
+    if (!quest) return;
+    const coins = get().coins + quest.reward;
+    const totalCoinsEarned = get().totalCoinsEarned + quest.reward;
+    save("zb_quests", quests); save("zb_coins", coins); save("zb_tce", totalCoinsEarned);
+    set({ dailyQuests: quests, coins, totalCoinsEarned });
+  },
+
+  refreshDailyQuestsIfNeeded: () => {
+    const today = getTodayKey();
+    const s = get();
+    if (s.dailyQuestsDate !== today || s.dailyQuests.length === 0) {
+      const quests = generateDailyQuests(today);
+      save("zb_quests", quests); save("zb_qdate", today);
+      set({ dailyQuests: quests, dailyQuestsDate: today });
+    }
+  },
+
+  addPermanentPerk: (perk) => {
+    const perks = [...get().permanentPerks];
+    if (perks.includes(perk)) return;
+    perks.push(perk);
+    save("zb_perks", perks);
+    set({ permanentPerks: perks });
+  },
 }));

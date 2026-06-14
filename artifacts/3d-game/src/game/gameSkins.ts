@@ -87,6 +87,12 @@ export const CHARACTER_SKINS: CharacterSkin[] = [
     accentColor: "#6ee7b7", legColor: "#022c22", tier: "legendary", badge: "⭐",
   },
   {
+    id: "cyberrunner", name: "Cyber Runner",
+    description: "Street-level tech warrior. Adaptive, fast, and totally free.",
+    cost: 0, bodyColor: "#0f172a", headColor: "#1e293b",
+    accentColor: "#22d3ee", legColor: "#0c1322", tier: "basic", badge: "🤖",
+  },
+  {
     id: "ghost_squad", name: "Ghost Squad",
     description: "Elite ghost unit. You never fight alone.",
     cost: 0, bodyColor: "#1e3a5f", headColor: "#1e40af",

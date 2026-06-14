@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGameStore, Enemy, EnemyType, Bullet, PowerUpType, DamageEvent } from "./store";
+import { useGameStore, Enemy, EnemyType, Bullet, PowerUpType, ActivePowerUp, DamageEvent } from "./store";
 import { getObstacles, ARENA_HALF } from "./Arena";
 import { getGun } from "./gameGuns";
 import { getMeleeWeapon } from "./gameMeleeWeapons";
@@ -78,6 +78,20 @@ function makeEnemy(type: EnemyType, spMult: number, hpMult: number, label: strin
   };
 }
 
+function spawnPracticeDummies(): Enemy[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    const angle  = (i / 12) * Math.PI * 2;
+    const radius = 7 + (i % 3) * 5;
+    return {
+      id: `dummy_${i}`,
+      position: new THREE.Vector3(Math.cos(angle) * radius, 0.7, Math.sin(angle) * radius),
+      hp: 1200, maxHp: 1200, type: "tank" as EnemyType,
+      speed: 0, baseDamage: 0, lastShot: 0, lastDamageTime: -99,
+      alertRadius: 0, zigzagPhase: 0,
+    };
+  });
+}
+
 function buildWaveEndless(wave: number): Enemy[] {
   const all: EnemyType[] = ["chaser","ranged","speeder","tank","bomber"];
   const allowed =
@@ -85,7 +99,7 @@ function buildWaveEndless(wave: number): Enemy[] {
     wave===2 ? ["chaser","ranged"] as EnemyType[] :
     wave===3 ? ["chaser","ranged","tank"] as EnemyType[] :
     wave===4 ? ["chaser","ranged","tank","speeder"] as EnemyType[] : all;
-  const count  = 4+wave*2;
+  const count  = wave === 1 ? 4 : 3 + wave * 2;
   const spMult = Math.min(2.5, 1+(wave-1)*0.12);
   const hpMult = 1+(wave-1)*0.15;
   return Array.from({length:count}, (_,i) =>
@@ -171,8 +185,14 @@ export default function GameLogic() {
     guardianShootRef.current = 0;
     meleeCoolRef.current     = 0;
 
+    // Apply permanent perks
+    const perks = s.permanentPerks;
+    const baseMaxHp = perks.includes("extra_hp") ? 125 : 100;
+    s.setMaxPlayerHp(baseMaxHp);
+    s.setPlayerHp(baseMaxHp);
+
     const reviveAvailable =
-      skin?.perk === "secondLife" || gun.perk === "secondLife";
+      skin?.perk === "secondLife" || gun.perk === "secondLife" || perks.includes("second_life");
     s.setReviveAvailable(reviveAvailable);
 
     const guardianActive =
@@ -183,15 +203,33 @@ export default function GameLogic() {
     s.setDroneAbility(false, 0, 0);
     s.setSquadAbility(false, 0, 0);
 
-    const initPUs = gun.autoPowerUp
+    const initPUs: ActivePowerUp[] = gun.autoPowerUp
       ? [{ type: gun.autoPowerUp, timeLeft: 9999, maxTime: 9999 }] : [];
+    if (perks.includes("start_rapid") && !initPUs.some((p) => p.type === "rapidfire")) {
+      initPUs.push({ type: "rapidfire", timeLeft: 8, maxTime: 8 });
+    }
+    if (perks.includes("start_shield") && !initPUs.some((p) => p.type === "shield")) {
+      initPUs.push({ type: "shield", timeLeft: 8, maxTime: 8 });
+    }
+    if (perks.includes("start_drone") && droneTimerRef.current <= 0) {
+      droneTimerRef.current = 10; droneCoolRef.current = DRONE_STRIKE_COOLDOWN;
+      s.setDroneAbility(true, 10, DRONE_STRIKE_COOLDOWN);
+    }
+    if (perks.includes("companion_5s") && squadTimerRef.current <= 0) {
+      squadTimerRef.current = 5; squadCoolRef.current = SQUAD_COOLDOWN;
+      s.setSquadAbility(true, 5, SQUAD_COOLDOWN);
+    }
     s.setActivePowerUps(initPUs);
     s.setBullets([]); s.setPowerUpItems([]);
     s.setSafeZoneRadius(SAFE_ZONE_START);
     s.setTimeSurvived(0); s.setKillCount(0); s.setKillStreak(0);
 
     const levelDef = s.gameMode === "levels" ? getLevel(s.currentLevel) : null;
-    if (levelDef) {
+    if (s.gameMode === "practice") {
+      s.setWave(1);
+      s.setSafeZoneRadius(50);
+      s.setEnemies(spawnPracticeDummies());
+    } else if (levelDef) {
       s.setWave(1);
       s.setEnemies(buildWaveLevel(
         levelDef.id,1,levelDef.allowedTypes,
@@ -209,7 +247,7 @@ export default function GameLogic() {
       const s = useGameStore.getState();
       if (s.phase !== "playing" || s.paused) return;
 
-      if (e.code === "KeyQ" && s.highestCompletedLevel >= 5 && droneCoolRef.current <= 0 && !droneTimerRef.current) {
+      if (e.code === "KeyQ" && (s.highestCompletedLevel >= 5 || s.permanentPerks.includes("q_always")) && droneCoolRef.current <= 0 && !droneTimerRef.current) {
         droneTimerRef.current = DRONE_STRIKE_DURATION;
         droneCoolRef.current  = DRONE_STRIKE_COOLDOWN;
         s.setDroneAbility(true, DRONE_STRIKE_DURATION, DRONE_STRIKE_COOLDOWN);
@@ -284,10 +322,11 @@ export default function GameLogic() {
     // ── Safe zone ──────────────────────────────────────────────────────────
     const shrinkMult = levelDef ? levelDef.safeZoneShrinkMult : 1;
     const shrinkRate = (0.018+(s.wave-1)*0.007)*shrinkMult;
-    const newZone    = Math.max(SAFE_ZONE_MIN, s.safeZoneRadius - shrinkRate*delta);
+    const newZone    = gameMode === "practice" ? SAFE_ZONE_START
+      : Math.max(SAFE_ZONE_MIN, s.safeZoneRadius - shrinkRate*delta);
     const playerDist = Math.sqrt(playerPos.x**2+playerPos.z**2);
     let   zoneDmg    = 0;
-    if (playerDist > newZone) {
+    if (playerDist > newZone && gameMode !== "practice") {
       zoneDmg = ZONE_DMG_PER_SEC*delta;
       if (zoneSoundRef.current <= 0) { playZoneDamage(); zoneSoundRef.current = 0.8; }
     }
@@ -481,13 +520,28 @@ export default function GameLogic() {
         pos.x=Math.max(-ARENA_HALF,Math.min(ARENA_HALF,pos.x));
         pos.z=Math.max(-ARENA_HALF,Math.min(ARENA_HALF,pos.z));
 
-        if(e.type==="ranged"&&dist>2&&now-lastShot>Math.max(1.2,2.5-s.wave*0.12)) {
+        if(e.type==="ranged"&&dist>2&&now-lastShot>Math.max(1.2,2.5-s.wave*0.12) && gameMode!=="practice") {
           newEnemyBullets.push({id:`eb_${++bulletId}`,position:new THREE.Vector3(pos.x+pdx/pdist,0.8,pos.z+pdz/pdist),direction:new THREE.Vector3(pdx/pdist,0,pdz/pdist),speed:9,fromPlayer:false,damage:e.baseDamage,lifetime:5});
           lastShot=now;
         }
-        if(e.type!=="ranged"&&dist<1.1&&now-lastDamageTime>0.5) { contactDmg+=e.baseDamage*0.5; lastDamageTime=now; }
+        if(e.type!=="ranged"&&dist<1.1&&now-lastDamageTime>0.5 && gameMode!=="practice") { contactDmg+=e.baseDamage*0.5; lastDamageTime=now; }
       }
       updatedEnemies.push({...e,position:pos,hp,lastShot,lastDamageTime});
+    }
+
+    // Practice mode: respawn dummies when killed, don't let count drop below 12
+    if (gameMode === "practice") {
+      while (updatedEnemies.length < 12) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 6 + Math.random() * 11;
+        updatedEnemies.push({
+          id: `dummy_${Date.now()}_${Math.random()}`,
+          position: new THREE.Vector3(Math.cos(angle)*radius, 0.7, Math.sin(angle)*radius),
+          hp: 1200, maxHp: 1200, type: "tank" as EnemyType,
+          speed: 0, baseDamage: 0, lastShot: 0, lastDamageTime: -99,
+          alertRadius: 0, zigzagPhase: 0,
+        });
+      }
     }
 
     // ── Killstreak ─────────────────────────────────────────────────────────
@@ -567,8 +621,10 @@ export default function GameLogic() {
     s.setKillStreak(newKillStreak);
 
     if (newHp !== s.playerHp) {
-      s.setPlayerHp(newHp);
-      if (newHp <= 0) {
+      // In practice mode, never die — floor at 1 HP
+      const finalHp = gameMode === "practice" ? Math.max(1, newHp) : newHp;
+      s.setPlayerHp(finalHp);
+      if (finalHp <= 0) {
         if (s.reviveAvailable) { s.revive(); }
         else { playGameOver(); s.finishGame(); }
       }

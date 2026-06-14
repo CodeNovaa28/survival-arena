@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useGameStore } from "./store";
 import { initAudio } from "./sounds";
 import { initMusic } from "./music";
-import { CoinIcon, ClockIcon, TargetIcon } from "./GameIcons";
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
@@ -16,11 +15,17 @@ export default function StartScreen() {
   const highestUnlockedLevel   = useGameStore((s) => s.highestUnlockedLevel);
   const completedLevels        = useGameStore((s) => s.completedLevels);
   const musicVolume            = useGameStore((s) => s.musicVolume);
+  const totalCoinsEarned       = useGameStore((s) => s.totalCoinsEarned);
+  const permanentPerks         = useGameStore((s) => s.permanentPerks);
+  const lastDailyChest         = useGameStore((s) => s.lastDailyChest);
   const setPhase               = useGameStore((s) => s.setPhase);
   const setGameMode            = useGameStore((s) => s.setGameMode);
   const restart                = useGameStore((s) => s.restart);
+  const refreshQuests          = useGameStore((s) => s.refreshDailyQuestsIfNeeded);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => { refreshQuests(); }, [refreshQuests]);
 
   // Animated star background
   useEffect(() => {
@@ -69,6 +74,9 @@ export default function StartScreen() {
     setPhase("levelselect");
   };
 
+  const chestAvailable = lastDailyChest !== `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`;
+  const nextMilestone  = [100,300,700,1500,3000,6000,12000,25000].find((m) => totalCoinsEarned < m);
+
   return (
     <div style={{
       position: "absolute", inset: 0,
@@ -87,7 +95,7 @@ export default function StartScreen() {
         background: "radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)",
         borderRadius: "50%", pointerEvents: "none" }} />
 
-      <div style={{ position: "relative", textAlign: "center", maxWidth: 600, width: "92%", zIndex: 1 }}>
+      <div style={{ position: "relative", textAlign: "center", maxWidth: 640, width: "92%", zIndex: 1 }}>
         {/* Badge */}
         <div style={{
           display: "inline-block", background: "rgba(239,68,68,0.15)",
@@ -104,7 +112,7 @@ export default function StartScreen() {
           letterSpacing: 6,
           background: "linear-gradient(180deg, #ffffff 0%, #93c5fd 100%)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          textShadow: "none", filter: "drop-shadow(0 0 40px rgba(96,165,250,0.4))",
+          filter: "drop-shadow(0 0 40px rgba(96,165,250,0.4))",
         }}>
           ZONE<br />
           <span style={{
@@ -115,13 +123,13 @@ export default function StartScreen() {
 
         {/* Stats row */}
         <div style={{
-          display: "flex", justifyContent: "center", gap: 14, margin: "20px 0 28px",
+          display: "flex", justifyContent: "center", gap: 14, margin: "20px 0 24px",
           flexWrap: "wrap",
         }}>
           {([
-            { icon: <CoinIcon size={28} />,   label: "COINS",  val: coins.toString(),                          accent: "#f59e0b" },
-            { icon: <ClockIcon size={28} />,  label: "BEST",   val: highScore > 0 ? formatTime(highScore) : "—", accent: "#60a5fa" },
-            { icon: <TargetIcon size={28} />, label: "LEVELS", val: `${completedLevels.length}/20`,              accent: "#a855f7" },
+            { icon: "🪙", label: "COINS",  val: coins.toString(),                          accent: "#f59e0b" },
+            { icon: "⏱",  label: "BEST",   val: highScore > 0 ? formatTime(highScore) : "—", accent: "#60a5fa" },
+            { icon: "🎯", label: "LEVELS", val: `${completedLevels.length}/20`,              accent: "#a855f7" },
           ] as const).map((stat) => (
             <div key={stat.label} style={{
               background: "rgba(255,255,255,0.04)",
@@ -129,7 +137,7 @@ export default function StartScreen() {
               borderRadius: 12, padding: "14px 22px", minWidth: 110,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
             }}>
-              <div style={{ filter: "drop-shadow(0 0 8px currentColor)" }}>{stat.icon}</div>
+              <div style={{ fontSize: 24 }}>{stat.icon}</div>
               <div style={{ fontSize: 20, fontWeight: "bold", color: "#fff", lineHeight: 1 }}>{stat.val}</div>
               <div style={{ fontSize: 9, color: stat.accent, letterSpacing: 3, opacity: 0.8 }}>{stat.label}</div>
             </div>
@@ -137,48 +145,101 @@ export default function StartScreen() {
         </div>
 
         {/* Mode cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
           <ModeCard
             icon="♾️"
             title="ENDLESS"
-            desc="Survive as long as you can. Waves never stop."
+            desc="Survive as long as you can."
             color="#3b82f6"
             onClick={startEndless}
           />
           <ModeCard
             icon="🎯"
             title="LEVELS"
-            desc={`${completedLevels.length}/20 complete · Progress through 20 challenges.`}
+            desc={`${completedLevels.length}/20 complete`}
             color="#a855f7"
             onClick={goLevels}
           />
+          <ModeCard
+            icon="⚙️"
+            title="PRACTICE"
+            desc="Train with dummies. No death."
+            color="#22c55e"
+            onClick={() => setPhase("practice")}
+          />
         </div>
 
-        {/* Customize button */}
-        <button
-          onClick={() => setPhase("customization")}
-          style={{
-            width: "100%", background: "rgba(255,255,255,0.04)",
-            color: "#94a3b8", border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 10, padding: "14px 0", fontSize: 15,
-            fontFamily: "'Courier New', monospace", letterSpacing: 3,
-            cursor: "pointer", transition: "all 0.2s", marginBottom: 20,
-          }}
-          onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.target as HTMLElement).style.color = "#fff"; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.target as HTMLElement).style.color = "#94a3b8"; }}
-        >
-          🎨 CUSTOMIZE
-        </button>
+        {/* Bottom buttons row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <button
+            onClick={() => setPhase("customization")}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              color: "#94a3b8", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 10, padding: "13px 0", fontSize: 13,
+              fontFamily: "'Courier New', monospace", letterSpacing: 2,
+              cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { (e.target as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.target as HTMLElement).style.color = "#fff"; }}
+            onMouseLeave={(e) => { (e.target as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.target as HTMLElement).style.color = "#94a3b8"; }}
+          >🎨 CUSTOMIZE</button>
+
+          <button
+            onClick={() => setPhase("dailyrewards")}
+            style={{
+              background: chestAvailable ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)",
+              color: chestAvailable ? "#fbbf24" : "#94a3b8",
+              border: `1px solid ${chestAvailable ? "rgba(245,158,11,0.35)" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 10, padding: "13px 0", fontSize: 13,
+              fontFamily: "'Courier New', monospace", letterSpacing: 2,
+              cursor: "pointer", transition: "all 0.2s",
+              position: "relative",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = chestAvailable ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.08)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = chestAvailable ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)"; }}
+          >
+            {chestAvailable && (
+              <span style={{
+                position: "absolute", top: -6, right: 12,
+                background: "#ef4444", borderRadius: "50%",
+                width: 12, height: 12, fontSize: 8,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#fff", fontWeight: "bold",
+              }}>!</span>
+            )}
+            📅 DAILY REWARDS
+          </button>
+        </div>
+
+        {/* Milestone perk notification */}
+        {nextMilestone && permanentPerks.length < 8 && (
+          <div style={{
+            background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)",
+            borderRadius: 8, padding: "8px 14px", marginBottom: 14,
+            fontSize: 10, color: "#c4b5fd", letterSpacing: 1,
+          }}>
+            🌟 MILESTONE PERK at {nextMilestone}🪙 total — you have {totalCoinsEarned}🪙 · {nextMilestone - totalCoinsEarned} more to go
+          </div>
+        )}
+        {permanentPerks.length > 0 && (
+          <div style={{
+            background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)",
+            borderRadius: 8, padding: "6px 14px", marginBottom: 14,
+            fontSize: 10, color: "#4ade80", letterSpacing: 1,
+          }}>
+            ✓ {permanentPerks.length} PERMANENT PERK{permanentPerks.length > 1 ? "S" : ""} ACTIVE THIS RUN
+          </div>
+        )}
 
         {/* Controls */}
         <div style={{
           display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, fontSize: 11,
         }}>
           {[
-            ["WASD", "Move"],
+            ["WASD / ↑↓←→", "Move"],
             ["Click", "Shoot"],
+            ["F", "Melee"],
             ["ESC", "Pause"],
-            ["🪙", "Collect coins"],
           ].map(([k, v]) => (
             <div key={k} style={{
               background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
@@ -191,18 +252,18 @@ export default function StartScreen() {
         </div>
 
         {/* Enemy legend */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
           {([
             ["#ef4444","Chaser","3🪙"],
             ["#7c3aed","Tank","12🪙"],
             ["#f97316","Ranged","6🪙"],
             ["#06b6d4","Speeder","5🪙"],
             ["#84cc16","Bomber","10🪙"],
-          ] as const).map(([c, n, coins]) => (
+          ] as const).map(([c, n, coinLabel]) => (
             <div key={n} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#555" }}>
               <div style={{ width: 8, height: 8, background: c, borderRadius: 2 }} />
               <span style={{ color: "#666" }}>{n}</span>
-              <span style={{ color: "#f59e0b", fontSize: 10 }}>{coins}</span>
+              <span style={{ color: "#f59e0b", fontSize: 10 }}>{coinLabel}</span>
             </div>
           ))}
         </div>
@@ -220,7 +281,7 @@ function ModeCard({ icon, title, desc, color, onClick }: {
       style={{
         background: `linear-gradient(135deg, ${color}22 0%, ${color}11 100%)`,
         border: `1px solid ${color}44`,
-        borderRadius: 12, padding: "20px 16px", cursor: "pointer",
+        borderRadius: 12, padding: "18px 12px", cursor: "pointer",
         transition: "all 0.2s", textAlign: "left",
         fontFamily: "'Courier New', monospace",
       }}
@@ -235,11 +296,11 @@ function ModeCard({ icon, title, desc, color, onClick }: {
         (e.currentTarget as HTMLElement).style.boxShadow = "none";
       }}
     >
-      <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 18, fontWeight: "bold", color: "#fff", letterSpacing: 3, marginBottom: 6 }}>
+      <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
+      <div style={{ fontSize: 14, fontWeight: "bold", color: "#fff", letterSpacing: 2, marginBottom: 4 }}>
         {title}
       </div>
-      <div style={{ fontSize: 11, color: "#666", lineHeight: 1.5 }}>{desc}</div>
+      <div style={{ fontSize: 10, color: "#666", lineHeight: 1.5 }}>{desc}</div>
     </button>
   );
 }

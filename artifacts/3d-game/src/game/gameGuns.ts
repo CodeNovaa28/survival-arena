@@ -36,6 +36,14 @@ export const GUNS: GunDef[] = [
     statFireRate: 3, statDamage: 4, statRange: 3,
   },
   {
+    id: "burst", name: "Burst Pistol",
+    description: "Fires 3 bullets per shot in a tight cluster. A strong free upgrade.",
+    cost: 0, tier: "basic",
+    fireRate: 0.68, damage: 16, bulletSpeed: 20, range: 1.9, bulletCount: 3, spread: 7,
+    barrelColor: "#1e293b", bulletColor: "#67e8f9", badge: "🔷",
+    statFireRate: 3, statDamage: 4, statRange: 4,
+  },
+  {
     id: "rifle", name: "Assault Rifle",
     description: "Accurate, long-range, solid damage. A reliable upgrade.",
     cost: 80, tier: "basic",

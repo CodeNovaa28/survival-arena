@@ -20,6 +20,9 @@ import GameOverScreen from "./GameOverScreen";
 import PauseMenu from "./PauseMenu";
 import CustomizationHub from "./CustomizationHub";
 import LevelSelectScreen from "./LevelSelectScreen";
+import DailyRewards from "./DailyRewards";
+import PracticeMode from "./PracticeMode";
+import HelpButton from "./HelpButton";
 
 enum Controls {
   forward = "forward", back = "back", left = "left", right = "right",
@@ -69,6 +72,7 @@ export default function Game() {
   const paused      = useGameStore((s) => s.paused);
   const selectedMap = useGameStore((s) => s.selectedMap);
   const setPaused   = useGameStore((s) => s.setPaused);
+  const gameMode    = useGameStore((s) => s.gameMode);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -90,6 +94,8 @@ export default function Game() {
       {phase === "start"         && <StartScreen />}
       {phase === "customization" && <CustomizationHub />}
       {phase === "levelselect"   && <LevelSelectScreen />}
+      {phase === "dailyrewards"  && <DailyRewards />}
+      {phase === "practice"      && <PracticeMode />}
 
       {showCanvas && (
         <KeyboardControls map={KEY_MAP}>
@@ -106,8 +112,20 @@ export default function Game() {
       )}
 
       {phase === "playing" && <HUD />}
+      {phase === "playing" && gameMode === "practice" && (
+        <div style={{
+          position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
+          background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)",
+          borderRadius: 8, padding: "6px 20px", fontSize: 11, color: "#4ade80",
+          fontFamily: "'Courier New', monospace", letterSpacing: 3, zIndex: 50,
+          pointerEvents: "none",
+        }}>⚙️ PRACTICE MODE — NO DEATH · DUMMIES RESPAWN · ESC TO PAUSE</div>
+      )}
       {phase === "playing" && paused && <PauseMenu />}
       {phase === "gameover" && <GameOverScreen />}
+
+      {/* Help button — always visible except during gameplay */}
+      {phase !== "playing" && <HelpButton />}
     </div>
   );
 }
