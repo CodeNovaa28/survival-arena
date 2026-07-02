@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useGameStore } from "./store";
 import { initAudio } from "./sounds";
 import { initMusic } from "./music";
+import { CoinIcon, GemIcon, ClockIcon, TargetIcon, EndlessIcon, PracticeIcon } from "./GameIcons";
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60);
@@ -128,18 +129,18 @@ export default function StartScreen() {
           flexWrap: "wrap",
         }}>
           {([
-            { icon: "🪙", label: "COINS",  val: coins.toString(),                             accent: "#f59e0b" },
-            { icon: "💎", label: "GEMS",   val: gems.toString(),                              accent: "#06b6d4" },
-            { icon: "⏱",  label: "BEST",   val: highScore > 0 ? formatTime(highScore) : "—", accent: "#60a5fa" },
-            { icon: "🎯", label: "LEVELS", val: `${completedLevels.length}/20`,               accent: "#a855f7" },
-          ] as const).map((stat) => (
+            { icon: <CoinIcon size={28} />,  label: "COINS",  val: coins.toString(),                             accent: "#f59e0b" },
+            { icon: <GemIcon size={28} />,   label: "GEMS",   val: gems.toString(),                              accent: "#06b6d4" },
+            { icon: <ClockIcon size={28} />, label: "BEST",   val: highScore > 0 ? formatTime(highScore) : "—", accent: "#60a5fa" },
+            { icon: <TargetIcon size={28} />,label: "LEVELS", val: `${completedLevels.length}/20`,               accent: "#a855f7" },
+          ] as { icon: ReactNode; label: string; val: string; accent: string }[]).map((stat) => (
             <div key={stat.label} style={{
               background: "rgba(255,255,255,0.04)",
               border: `1px solid ${stat.accent}22`,
               borderRadius: 12, padding: "14px 22px", minWidth: 110,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
             }}>
-              <div style={{ fontSize: 24 }}>{stat.icon}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{stat.icon}</div>
               <div style={{ fontSize: 20, fontWeight: "bold", color: "#fff", lineHeight: 1 }}>{stat.val}</div>
               <div style={{ fontSize: 9, color: stat.accent, letterSpacing: 3, opacity: 0.8 }}>{stat.label}</div>
             </div>
@@ -149,21 +150,21 @@ export default function StartScreen() {
         {/* Mode cards */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
           <ModeCard
-            icon="♾️"
+            icon={<EndlessIcon size={28} />}
             title="ENDLESS"
             desc="Survive as long as you can."
             color="#3b82f6"
             onClick={startEndless}
           />
           <ModeCard
-            icon="🎯"
+            icon={<TargetIcon size={28} />}
             title="LEVELS"
             desc={`${completedLevels.length}/20 complete`}
             color="#a855f7"
             onClick={goLevels}
           />
           <ModeCard
-            icon="⚙️"
+            icon={<PracticeIcon size={28} />}
             title="PRACTICE"
             desc="Train with dummies. No death."
             color="#22c55e"
@@ -301,7 +302,7 @@ export default function StartScreen() {
 }
 
 function ModeCard({ icon, title, desc, color, onClick }: {
-  icon: string; title: string; desc: string; color: string; onClick: () => void;
+  icon: ReactNode; title: string; desc: string; color: string; onClick: () => void;
 }) {
   return (
     <button
@@ -324,7 +325,7 @@ function ModeCard({ icon, title, desc, color, onClick }: {
         (e.currentTarget as HTMLElement).style.boxShadow = "none";
       }}
     >
-      <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
+      <div style={{ marginBottom: 6 }}>{icon}</div>
       <div style={{ fontSize: 14, fontWeight: "bold", color: "#fff", letterSpacing: 2, marginBottom: 4 }}>
         {title}
       </div>

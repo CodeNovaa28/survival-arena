@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useGameStore, PowerUpType } from "./store";
 import { getGun } from "./gameGuns";
 import { getMeleeWeapon } from "./gameMeleeWeapons";
 import { LEVELS } from "./gameLevels";
-import { CoinIcon, ClockIcon } from "./GameIcons";
+import { CoinIcon, ClockIcon, ShieldIcon, LightningIcon, FireIcon, DrugIcon, DroneIcon } from "./GameIcons";
 import { getMap } from "./gameMaps";
 
 function fmt(s: number) {
@@ -14,8 +14,12 @@ function fmt(s: number) {
 const PU_COLOR: Record<PowerUpType, string> = {
   speed: "#06b6d4", shield: "#3b82f6", rapidfire: "#facc15", heal: "#22c55e", drone: "#a855f7",
 };
-const PU_ICON: Record<PowerUpType, string> = {
-  speed: "⚡", shield: "🛡", rapidfire: "🔥", heal: "💊", drone: "🛸",
+const PU_ICON: Record<PowerUpType, ReactNode> = {
+  speed:     <LightningIcon size={16} />,
+  shield:    <ShieldIcon size={16} />,
+  rapidfire: <FireIcon size={16} />,
+  heal:      <DrugIcon size={16} />,
+  drone:     <DroneIcon size={16} />,
 };
 
 export default function HUD() {
@@ -262,12 +266,12 @@ export default function HUD() {
         <MeleeBar melee={melee} cooldown={meleeCooldown} maxCD={meleeMaxCD} ready={meleeReady} />
 
         {droneUnlocked && (
-          <AbilityBar keyLabel="Q" icon="🛸" name="DRONE STRIKE"
+          <AbilityBar keyLabel="Q" icon={<DroneIcon size={16} />} name="DRONE STRIKE"
             active={droneActive} timer={droneTimer} cooldown={droneCooldown}
             maxDuration={15} maxCooldown={60} />
         )}
         {squadUnlocked && (
-          <AbilityBar keyLabel="E" icon="👥" name="SQUAD BACKUP"
+          <AbilityBar keyLabel="E" icon={<span style={{ fontSize: 14, lineHeight: 1 }}>⊕</span>} name="SQUAD BACKUP"
             active={squadActive} timer={squadTimer} cooldown={squadCooldown}
             maxDuration={30} maxCooldown={90} />
         )}
@@ -361,7 +365,7 @@ function MeleeBar({ melee, cooldown, maxCD, ready }: {
 
 // ─── Ability bar ───────────────────────────────────────────────────────────────
 function AbilityBar({ keyLabel, icon, name, active, timer, cooldown, maxDuration, maxCooldown }: {
-  keyLabel: string; icon: string; name: string;
+  keyLabel: string; icon: ReactNode; name: string;
   active: boolean; timer: number; cooldown: number;
   maxDuration: number; maxCooldown: number;
 }) {

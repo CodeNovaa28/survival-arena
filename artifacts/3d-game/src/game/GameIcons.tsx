@@ -81,3 +81,74 @@ export function HeartIcon({ size = 22 }: { size?: number }) {
     </svg>
   );
 }
+
+export function PracticeIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10.5" fill="rgba(34,197,94,0.12)" stroke="#22c55e" strokeWidth="1.5"/>
+      <circle cx="12" cy="12" r="6.5" fill="rgba(34,197,94,0.15)" stroke="#4ade80" strokeWidth="1"/>
+      <circle cx="12" cy="12" r="3" fill="#22c55e"/>
+      <line x1="12" y1="1.5" x2="12" y2="5.5" stroke="#22c55e" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="12" y1="18.5" x2="12" y2="22.5" stroke="#22c55e" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="1.5" y1="12" x2="5.5" y2="12" stroke="#22c55e" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="18.5" y1="12" x2="22.5" y2="12" stroke="#22c55e" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+export function ShieldIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <path d="M12 2L4 6v6c0 5 3.5 9.7 8 11 4.5-1.3 8-6 8-11V6L12 2z" fill="rgba(59,130,246,0.3)" stroke="#3b82f6" strokeWidth="1.5"/>
+      <path d="M12 5L7 8v4c0 3.2 2.2 6.2 5 7 2.8-.8 5-3.8 5-7V8L12 5z" fill="rgba(59,130,246,0.4)"/>
+      <path d="M9 12l2 2 4-4" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+export function LightningIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10.5" fill="rgba(6,182,212,0.12)" stroke="#06b6d4" strokeWidth="1.2"/>
+      <path d="M13 3L5 14h7l-1 7 8-11h-7l1-7z" fill="#06b6d4" stroke="#0891b2" strokeWidth="0.6"/>
+    </svg>
+  );
+}
+
+export function FireIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10.5" fill="rgba(250,204,21,0.1)" stroke="#facc15" strokeWidth="1.2"/>
+      <path d="M12 4c0 3-3 4-3 7a3 3 0 0 0 6 0c0-1.5-1-2.5-1-4 1 1.5 2 3 2 5a4 4 0 0 1-8 0c0-4 4-6 4-8z" fill="#f97316" stroke="#ea580c" strokeWidth="0.5"/>
+      <path d="M12 14c0 1-1 2-1 3a1 1 0 0 0 2 0c0-.7-.5-1-1-3z" fill="#fde68a"/>
+    </svg>
+  );
+}
+
+export function DrugIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10.5" fill="rgba(34,197,94,0.12)" stroke="#22c55e" strokeWidth="1.2"/>
+      <rect x="9" y="5" width="6" height="14" rx="3" fill="#22c55e" opacity="0.8"/>
+      <rect x="9" y="5" width="6" height="7" rx="3" fill="#4ade80"/>
+      <line x1="8" y1="12" x2="16" y2="12" stroke="#15803d" strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+export function DroneIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ display: "block", flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10.5" fill="rgba(168,85,247,0.12)" stroke="#a855f7" strokeWidth="1.2"/>
+      <circle cx="12" cy="12" r="3" fill="#a855f7"/>
+      <ellipse cx="5" cy="8" rx="2.5" ry="1.5" fill="#c084fc" opacity="0.8"/>
+      <ellipse cx="19" cy="8" rx="2.5" ry="1.5" fill="#c084fc" opacity="0.8"/>
+      <ellipse cx="5" cy="16" rx="2.5" ry="1.5" fill="#c084fc" opacity="0.8"/>
+      <ellipse cx="19" cy="16" rx="2.5" ry="1.5" fill="#c084fc" opacity="0.8"/>
+      <line x1="7.2" y1="9.2" x2="10" y2="11" stroke="#a855f7" strokeWidth="1.2"/>
+      <line x1="16.8" y1="9.2" x2="14" y2="11" stroke="#a855f7" strokeWidth="1.2"/>
+      <line x1="7.2" y1="14.8" x2="10" y2="13" stroke="#a855f7" strokeWidth="1.2"/>
+      <line x1="16.8" y1="14.8" x2="14" y2="13" stroke="#a855f7" strokeWidth="1.2"/>
+    </svg>
+  );
+}
