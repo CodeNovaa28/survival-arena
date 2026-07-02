@@ -8,19 +8,22 @@ function formatTime(s: number) {
 }
 
 export default function GameOverScreen() {
-  const timeSurvived   = useGameStore((s) => s.timeSurvived);
-  const highScore      = useGameStore((s) => s.highScore);
-  const wave           = useGameStore((s) => s.wave);
-  const killCount      = useGameStore((s) => s.killCount);
-  const sessionCoins   = useGameStore((s) => s.sessionCoins);
-  const levelWon       = useGameStore((s) => s.levelWon);
-  const currentLevel   = useGameStore((s) => s.currentLevel);
-  const gameMode       = useGameStore((s) => s.gameMode);
-  const musicVolume    = useGameStore((s) => s.musicVolume);
-  const restart        = useGameStore((s) => s.restart);
-  const setPhase       = useGameStore((s) => s.setPhase);
+  const timeSurvived         = useGameStore((s) => s.timeSurvived);
+  const highScore            = useGameStore((s) => s.highScore);
+  const wave                 = useGameStore((s) => s.wave);
+  const killCount            = useGameStore((s) => s.killCount);
+  const sessionCoins         = useGameStore((s) => s.sessionCoins);
+  const levelWon             = useGameStore((s) => s.levelWon);
+  const currentLevel         = useGameStore((s) => s.currentLevel);
+  const gameMode             = useGameStore((s) => s.gameMode);
+  const musicVolume          = useGameStore((s) => s.musicVolume);
+  const checkpointWave       = useGameStore((s) => s.checkpointWave);
+  const restart              = useGameStore((s) => s.restart);
+  const setPhase             = useGameStore((s) => s.setPhase);
+  const restartFromCheckpoint= useGameStore((s) => s.restartFromCheckpoint);
 
   const isNewBest = timeSurvived > 0 && timeSurvived >= highScore && gameMode === "endless";
+  const showCheckpoint = gameMode === "levels" && !levelWon && checkpointWave > 0;
 
   const handleRestart = () => {
     initAudio();
@@ -39,8 +42,13 @@ export default function GameOverScreen() {
     restart();
   };
 
+  const handleCheckpoint = () => {
+    initAudio();
+    initMusic(musicVolume);
+    restartFromCheckpoint();
+  };
+
   const accent = levelWon ? "#22c55e" : "#ef4444";
-  const accentDim = levelWon ? "#166534" : "#7f1d1d";
 
   return (
     <div style={{
@@ -49,7 +57,6 @@ export default function GameOverScreen() {
       background: "rgba(0,0,0,0.90)",
       zIndex: 100, fontFamily: "'Courier New', monospace",
     }}>
-      {/* Glow */}
       <div style={{
         position: "absolute", inset: 0,
         background: `radial-gradient(ellipse at 50% 50%, ${accent}10 0%, transparent 60%)`,
@@ -63,12 +70,10 @@ export default function GameOverScreen() {
         boxShadow: `0 0 80px ${accent}20, inset 0 0 60px rgba(0,0,0,0.5)`,
         maxWidth: 480, width: "92%",
       }}>
-        {/* Status icon */}
         <div style={{ fontSize: 52, marginBottom: 8 }}>
           {levelWon ? "🏆" : "💀"}
         </div>
 
-        {/* Title */}
         <div style={{
           fontSize: 42, fontWeight: 900, letterSpacing: 5,
           color: accent, marginBottom: 4,
@@ -83,7 +88,6 @@ export default function GameOverScreen() {
           </div>
         )}
 
-        {/* New best badge */}
         {isNewBest && (
           <div style={{
             display: "inline-block",
@@ -117,6 +121,25 @@ export default function GameOverScreen() {
           )}
         </div>
 
+        {/* Checkpoint banner */}
+        {showCheckpoint && (
+          <div style={{
+            background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.35)",
+            borderRadius: 10, padding: "12px 18px", marginBottom: 16,
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 20 }}>🔖</span>
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 12, fontWeight: "bold", color: "#60a5fa", letterSpacing: 2 }}>
+                CHECKPOINT AVAILABLE
+              </div>
+              <div style={{ fontSize: 10, color: "#4a7ab5", marginTop: 2 }}>
+                Resume from Wave {checkpointWave} with saved HP
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Buttons */}
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           <ActionBtn
@@ -124,6 +147,9 @@ export default function GameOverScreen() {
             color={accent}
             onClick={levelWon && gameMode === "levels" && currentLevel < 20 ? handleNextLevel : handleRestart}
           />
+          {showCheckpoint && (
+            <ActionBtn label={`WAVE ${checkpointWave} ↩`} color="#1e40af" onClick={handleCheckpoint} />
+          )}
           <ActionBtn label="MENU" color="#334155" onClick={handleMenu} />
           {gameMode === "levels" && (
             <ActionBtn label="LEVELS" color="#1e3a5f" onClick={() => setPhase("levelselect")} />

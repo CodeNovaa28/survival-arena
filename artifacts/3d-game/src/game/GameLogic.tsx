@@ -28,8 +28,8 @@ const POWERUP_DURATION: Record<PowerUpType, number> = {
   speed: 8, shield: 5, rapidfire: 10, heal: 0, drone: 20,
 };
 
-const SAFE_ZONE_START  = 23;
-const SAFE_ZONE_MIN    = 6;
+const SAFE_ZONE_START  = 40;
+const SAFE_ZONE_MIN    = 10;
 const ZONE_DMG_PER_SEC = 20;
 const WAVE_DURATION    = 20;
 const CRIT_CHANCE      = 0.15;
@@ -152,7 +152,8 @@ export default function GameLogic() {
   const waveLockedRef    = useRef(false);
   const zoneSoundRef     = useRef(0);
   const wavesSpawnedRef  = useRef(1);
-  const levelCompleteRef = useRef(false);
+  const levelCompleteRef   = useRef(false);
+  const checkpointSavedRef = useRef(false);
   const obstaclesRef     = useRef(getObstacles("urban"));
 
   // Companion timers
@@ -179,8 +180,9 @@ export default function GameLogic() {
     const skin = CHARACTER_SKINS.find((sk) => sk.id === s.selectedSkin);
 
     obstaclesRef.current     = getObstacles(s.selectedMap);
-    levelCompleteRef.current = false;
-    wavesSpawnedRef.current  = 1;
+    levelCompleteRef.current   = false;
+    checkpointSavedRef.current = false;
+    wavesSpawnedRef.current    = 1;
     gameTimeRef.current      = 0;
     waveTimerRef.current     = WAVE_DURATION;
     puTimerRef.current       = 15;
@@ -231,16 +233,24 @@ export default function GameLogic() {
     s.setTimeSurvived(0); s.setKillCount(0); s.setKillStreak(0);
 
     const levelDef = s.gameMode === "levels" ? getLevel(s.currentLevel) : null;
+    const startCpWave = s.startCheckpointWave;
     if (s.gameMode === "practice") {
       s.setWave(1);
       s.setSafeZoneRadius(50);
       s.setEnemies(spawnPracticeDummies());
     } else if (levelDef) {
-      s.setWave(1);
+      const startWave = startCpWave > 0 ? startCpWave : 1;
+      s.setWave(startWave);
+      wavesSpawnedRef.current = startWave;
+      if (startCpWave > 0) {
+        s.setPlayerHp(Math.max(30, Math.min(s.checkpointHp, baseMaxHp)));
+        checkpointSavedRef.current = true; // don't overwrite checkpoint with lower wave
+        useGameStore.setState({ startCheckpointWave: 0 });
+      }
       s.setEnemies(buildWaveLevel(
-        levelDef.id,1,levelDef.allowedTypes,
-        levelDef.speedMult,levelDef.hpMult,
-        levelDef.baseEnemyCount,levelDef.enemyCountPerWave,
+        levelDef.id, startWave, levelDef.allowedTypes,
+        levelDef.speedMult, levelDef.hpMult,
+        levelDef.baseEnemyCount, levelDef.enemyCountPerWave,
       ));
     } else {
       s.setWave(1); s.setEnemies(buildWaveEndless(1));
@@ -615,7 +625,8 @@ export default function GameLogic() {
       if (life<=0) continue;
       if (Math.abs(np.x)>ARENA_HALF+1.5||Math.abs(np.z)>ARENA_HALF+1.5) continue;
       if (obstacleHit(np,obs)) continue;
-      if (!b.fromPlayer && np.distanceTo(playerPos)<0.75) { bulletPlayerDmg+=b.damage; continue; }
+      const bxz = Math.sqrt((np.x-playerPos.x)**2+(np.z-playerPos.z)**2);
+      if (!b.fromPlayer && bxz<1.0) { bulletPlayerDmg+=b.damage; continue; }
       movedBullets.push({...b,position:np,lifetime:life});
     }
 
@@ -634,7 +645,7 @@ export default function GameLogic() {
           s.setMapDrops([...currentDrops, {
             id: `heart_${Date.now()}`,
             position: new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r),
-            type: "heart",
+            type: "heart", lifetime: 30,
           }]);
         }
       }
@@ -649,8 +660,7 @@ export default function GameLogic() {
           s.setMapDrops([...currentDrops, {
             id: `weapon_${Date.now()}`,
             position: new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r),
-            type: "weapon",
-            weaponId,
+            type: "weapon", weaponId, lifetime: 45,
           }]);
         }
       }
@@ -693,6 +703,18 @@ export default function GameLogic() {
       s.addSessionCoins(totalCoinsEarned);
     }
     s.setKillStreak(newKillStreak);
+
+    // ── Checkpoint detection (levels mode only) ─────────────────────────────
+    if (gameMode === "levels" && !checkpointSavedRef.current) {
+      const lDef = getLevel(s.currentLevel);
+      if (lDef.waves >= 6) {
+        const cpWave = Math.ceil(lDef.waves / 2);
+        if (s.wave >= cpWave) {
+          checkpointSavedRef.current = true;
+          s.setCheckpoint(s.wave, s.playerHp);
+        }
+      }
+    }
 
     if (newHp !== s.playerHp) {
       // In practice mode, never die — floor at 1 HP

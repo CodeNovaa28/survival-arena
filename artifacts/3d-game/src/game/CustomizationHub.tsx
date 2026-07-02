@@ -227,14 +227,14 @@ function CharacterTab() {
                 >🪙 {skin.cost}</button>
                 {skin.gemCost && gems >= skin.gemCost && (
                   <button
-                    onClick={() => { if (purchaseSkinWithGems(skin.id)) { selectSkin(skin.id); playPurchase(); } }}
+                    onClick={() => { if (purchaseSkinWithGems(skin.id, skin.gemCost!)) { selectSkin(skin.id); playPurchase(); } }}
                     style={shopBtnStyle("#0c4a6e", "#22d3ee")}
                   >💎 {skin.gemCost} gems</button>
                 )}
               </div>
             ) : skin.gemCost && gems >= skin.gemCost ? (
               <button
-                onClick={() => { if (purchaseSkinWithGems(skin.id)) { selectSkin(skin.id); playPurchase(); } }}
+                onClick={() => { if (purchaseSkinWithGems(skin.id, skin.gemCost!)) { selectSkin(skin.id); playPurchase(); } }}
                 style={shopBtnStyle("#0c4a6e", "#22d3ee")}
               >💎 {skin.gemCost} gems</button>
             ) : (
@@ -446,14 +446,14 @@ function MapsTab() {
                 >🪙 {map.coinCost}</button>
                 {map.gemCost && gems >= map.gemCost && (
                   <button
-                    onClick={() => { if (purchaseMapWithGems(map.id)) { selectMap(map.id); playPurchase(); } }}
+                    onClick={() => { if (purchaseMapWithGems(map.id, map.gemCost!)) { selectMap(map.id); playPurchase(); } }}
                     style={shopBtnStyle("#0c4a6e", "#22d3ee")}
                   >💎 {map.gemCost} gems</button>
                 )}
               </div>
             ) : map.gemCost && gems >= map.gemCost ? (
               <button
-                onClick={() => { if (purchaseMapWithGems(map.id)) { selectMap(map.id); playPurchase(); } }}
+                onClick={() => { if (purchaseMapWithGems(map.id, map.gemCost!)) { selectMap(map.id); playPurchase(); } }}
                 style={shopBtnStyle("#0c4a6e", "#22d3ee")}
               >💎 {map.gemCost} gems</button>
             ) : (

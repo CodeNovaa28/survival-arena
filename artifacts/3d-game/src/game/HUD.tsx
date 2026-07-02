@@ -1,8 +1,10 @@
+import { useState, useEffect, useMemo } from "react";
 import { useGameStore, PowerUpType } from "./store";
 import { getGun } from "./gameGuns";
 import { getMeleeWeapon } from "./gameMeleeWeapons";
 import { LEVELS } from "./gameLevels";
 import { CoinIcon, ClockIcon } from "./GameIcons";
+import { getMap } from "./gameMaps";
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -47,6 +49,28 @@ export default function HUD() {
   const meleeCooldown        = useGameStore((s) => s.meleeCooldown);
   const killStreak           = useGameStore((s) => s.killStreak);
   const tempWeapon           = useGameStore((s) => s.tempWeapon);
+  const selectedMap          = useGameStore((s) => s.selectedMap);
+  const checkpointWave       = useGameStore((s) => s.checkpointWave);
+
+  // Zone detection
+  const mapDef = useMemo(() => getMap(selectedMap), [selectedMap]);
+  const zoneDist = Math.sqrt(playerPos.x ** 2 + playerPos.z ** 2);
+  const zoneName = useMemo(() => {
+    if (zoneDist < 18) return mapDef.zones.center;
+    if (playerPos.x > 0 && playerPos.z < 0) return mapDef.zones.ne;
+    if (playerPos.x > 0 && playerPos.z >= 0) return mapDef.zones.se;
+    if (playerPos.x <= 0 && playerPos.z >= 0) return mapDef.zones.sw;
+    return mapDef.zones.nw;
+  }, [zoneDist, playerPos.x, playerPos.z, mapDef]);
+
+  // Checkpoint notification
+  const [showCpNotif, setShowCpNotif] = useState(false);
+  useEffect(() => {
+    if (checkpointWave <= 0) return;
+    setShowCpNotif(true);
+    const t = setTimeout(() => setShowCpNotif(false), 3500);
+    return () => clearTimeout(t);
+  }, [checkpointWave]);
 
   const hpPct     = Math.max(0, (playerHp / maxPlayerHp) * 100);
   const hpColor   = hpPct > 50 ? "#22c55e" : hpPct > 25 ? "#f97316" : "#ef4444";
@@ -75,6 +99,35 @@ export default function HUD() {
       position: "absolute", inset: 0, pointerEvents: "none",
       zIndex: 10, fontFamily: "'Courier New', monospace",
     }}>
+      {/* ─ Checkpoint saved notification ─ */}
+      {showCpNotif && (
+        <div style={{
+          position: "absolute", top: "38%", left: "50%", transform: "translate(-50%,-50%)",
+          background: "rgba(6,14,30,0.95)", border: "2px solid #1d4ed8",
+          borderRadius: 14, padding: "18px 36px", textAlign: "center",
+          boxShadow: "0 0 40px rgba(59,130,246,0.4)",
+          animation: "fadeInOut 3.5s ease forwards",
+          pointerEvents: "none",
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 4 }}>🔖</div>
+          <div style={{ fontSize: 15, fontWeight: "bold", color: "#60a5fa", letterSpacing: 3 }}>CHECKPOINT SAVED</div>
+          <div style={{ fontSize: 11, color: "#3b82f6", marginTop: 4 }}>
+            Wave {checkpointWave} · Reach the next half to advance it
+          </div>
+        </div>
+      )}
+
+      {/* ─ Zone name indicator ─ */}
+      <div style={{
+        position: "absolute", bottom: 70, right: 14,
+        background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 8, padding: "5px 12px",
+        fontSize: 10, letterSpacing: 2, color: "#556",
+        backdropFilter: "blur(3px)",
+      }}>
+        📍 {zoneName}
+      </div>
+
       {/* ─ Killstreak badge ─ */}
       {killStreak >= 5 && (
         <div style={{

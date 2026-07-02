@@ -6,9 +6,9 @@ import { useGameStore } from "./store";
 const SEGMENTS = 64;
 
 export default function SafeZone() {
-  const ringRef = useRef<THREE.Mesh>(null);
+  const ringRef   = useRef<THREE.Mesh>(null);
   const dangerRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+  const glowRef   = useRef<THREE.Mesh>(null);
 
   useFrame(({ clock }) => {
     const r = useGameStore.getState().safeZoneRadius;
@@ -17,9 +17,7 @@ export default function SafeZone() {
 
     if (ringRef.current) {
       (ringRef.current.material as THREE.MeshBasicMaterial).color.setHSL(
-        0.15,
-        1,
-        0.5 + pulse * 0.2
+        0.15, 1, 0.5 + pulse * 0.2
       );
       ringRef.current.scale.setScalar(r);
     }
@@ -28,16 +26,15 @@ export default function SafeZone() {
       (glowRef.current.material as THREE.MeshBasicMaterial).opacity = 0.06 + pulse * 0.04;
     }
     if (dangerRef.current) {
-      // Outside danger tint — always at arena size
       (dangerRef.current.material as THREE.MeshBasicMaterial).opacity = 0.12 + pulse * 0.05;
     }
   });
 
   return (
     <group position={[0, 0.05, 0]}>
-      {/* Danger zone overlay (outside ring) — large disc minus inner */}
+      {/* Danger zone overlay — large disc covering expanded arena */}
       <mesh ref={dangerRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0, 30, SEGMENTS]} />
+        <ringGeometry args={[0, 50, SEGMENTS]} />
         <meshBasicMaterial color="#ef4444" transparent opacity={0.1} side={THREE.FrontSide} />
       </mesh>
 

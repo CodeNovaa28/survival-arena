@@ -144,6 +144,11 @@ interface GameState {
   tempWeapon: string | null;
   mapDrops: MapDrop[];
 
+  // Session – checkpoints
+  checkpointWave: number;
+  checkpointHp: number;
+  startCheckpointWave: number;
+
   // Setters
   setPhase: (p: GamePhase) => void;
   setPlayerHp: (hp: number) => void; setMaxPlayerHp: (hp: number) => void;
@@ -163,6 +168,9 @@ interface GameState {
   addDamageEvent: (e: DamageEvent) => void;
   setTempWeapon: (id: string | null) => void;
   setMapDrops: (drops: MapDrop[]) => void;
+  setCheckpoint: (wave: number, hp: number) => void;
+  clearCheckpoint: () => void;
+  restartFromCheckpoint: () => void;
 
   // Progression
   addSessionCoins: (n: number) => void;
@@ -204,7 +212,7 @@ const INITIAL_SESSION = {
   playerHp: 100, maxPlayerHp: 100, timeSurvived: 0, wave: 1, killCount: 0,
   enemies: [] as Enemy[], bullets: [] as Bullet[],
   powerUpItems: [] as PowerUpItem[], activePowerUps: [] as ActivePowerUp[],
-  safeZoneRadius: 23, playerPosition: new THREE.Vector3(), playerVelocity: new THREE.Vector3(),
+  safeZoneRadius: 40, playerPosition: new THREE.Vector3(), playerVelocity: new THREE.Vector3(),
   droneActive: false, droneTimer: 0, droneCooldown: 0,
   squadActive: false, squadTimer: 0, squadCooldown: 0,
   reviveAvailable: false, reviveUsed: false, guardianActive: false,
@@ -212,6 +220,7 @@ const INITIAL_SESSION = {
   killStreak: 0, damageEvents: [] as DamageEvent[],
   tempWeapon: null as string | null,
   mapDrops: [] as MapDrop[],
+  checkpointWave: 0, checkpointHp: 100, startCheckpointWave: 0,
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -270,6 +279,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   setKillStreak:     (n)        => set({ killStreak: n }),
   setTempWeapon:     (id)       => set({ tempWeapon: id }),
   setMapDrops:       (drops)    => set({ mapDrops: drops }),
+  setCheckpoint: (wave, hp) => set({ checkpointWave: wave, checkpointHp: hp }),
+  clearCheckpoint: () => set({ checkpointWave: 0, checkpointHp: 100, startCheckpointWave: 0 }),
+  restartFromCheckpoint: () => set((s) => ({
+    ...INITIAL_SESSION,
+    gameKey: s.gameKey + 1,
+    startCheckpointWave: s.checkpointWave,
+    checkpointWave: s.checkpointWave,
+    checkpointHp: s.checkpointHp,
+  })),
 
   addDamageEvent: (e) => {
     set((s) => ({ damageEvents: [...s.damageEvents.slice(-18), e] }));
