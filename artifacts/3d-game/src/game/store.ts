@@ -5,8 +5,15 @@ export type GamePhase =
   | "start" | "customization" | "levelselect" | "playing" | "gameover"
   | "dailyrewards" | "practice" | "settings" | "minigames" | "cutscene";
 
-export type EnemyType = "chaser" | "tank" | "ranged" | "speeder" | "bomber";
+export type EnemyType = "chaser" | "tank" | "ranged" | "speeder" | "bomber" | "boss";
 export type PowerUpType = "speed" | "shield" | "rapidfire" | "heal" | "drone";
+export type KillEffectType =
+  | "explosion" | "dissolve" | "shatter" | "vaporize"
+  | "vortex"    | "freeze"   | "electrocute" | "disintegrate";
+
+export interface DyingEnemy {
+  id: string; pos: THREE.Vector3; color: string; createdAt: number; effect: KillEffectType;
+}
 
 export interface Enemy {
   id: string; position: THREE.Vector3; hp: number; maxHp: number;
@@ -149,6 +156,18 @@ interface GameState {
   checkpointHp: number;
   startCheckpointWave: number;
 
+  // Session – death & transitions
+  playerDead: boolean;
+  deathPos: THREE.Vector3;
+  levelCompleting: boolean;
+  secretPortalOpen: boolean;
+  inSecretLevel: boolean;
+  secretWave: number;
+  dyingEnemies: DyingEnemy[];
+
+  // Persistent – kill effect
+  killEffect: KillEffectType;
+
   // Setters
   setPhase: (p: GamePhase) => void;
   setPlayerHp: (hp: number) => void; setMaxPlayerHp: (hp: number) => void;
@@ -171,6 +190,19 @@ interface GameState {
   setCheckpoint: (wave: number, hp: number) => void;
   clearCheckpoint: () => void;
   restartFromCheckpoint: () => void;
+
+  // New setters – death & transitions
+  setPlayerDead: (dead: boolean) => void;
+  setDeathPos: (pos: THREE.Vector3) => void;
+  setLevelCompleting: (b: boolean) => void;
+  setSecretPortalOpen: (b: boolean) => void;
+  setInSecretLevel: (b: boolean) => void;
+  setSecretWave: (w: number) => void;
+  setDyingEnemies: (e: DyingEnemy[]) => void;
+  addDyingEnemy: (e: DyingEnemy) => void;
+  setKillEffect: (e: KillEffectType) => void;
+  triggerPlayerDeath: () => void;
+  triggerLevelComplete: (levelId: number, reward: number) => void;
 
   // Progression
   addSessionCoins: (n: number) => void;
@@ -221,6 +253,9 @@ const INITIAL_SESSION = {
   tempWeapon: null as string | null,
   mapDrops: [] as MapDrop[],
   checkpointWave: 0, checkpointHp: 100, startCheckpointWave: 0,
+  playerDead: false, deathPos: new THREE.Vector3(),
+  levelCompleting: false, secretPortalOpen: false,
+  inSecretLevel: false, secretWave: 0, dyingEnemies: [] as DyingEnemy[],
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -249,6 +284,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   lastDailySpin:         load("zb_spin",    ""),
   dailyQuests:           load("zb_quests",  []) as DailyQuest[],
   dailyQuestsDate:       load("zb_qdate",   ""),
+  killEffect:            load("zb_kfx",     "explosion") as KillEffectType,
 
   // Session
   ...INITIAL_SESSION,
@@ -288,6 +324,61 @@ export const useGameStore = create<GameState>((set, get) => ({
     checkpointWave: s.checkpointWave,
     checkpointHp: s.checkpointHp,
   })),
+
+  // New setters
+  setPlayerDead:      (dead) => set({ playerDead: dead }),
+  setDeathPos:        (pos)  => set({ deathPos: pos }),
+  setLevelCompleting: (b)    => set({ levelCompleting: b }),
+  setSecretPortalOpen:(b)    => set({ secretPortalOpen: b }),
+  setInSecretLevel:   (b)    => set({ inSecretLevel: b }),
+  setSecretWave:      (w)    => set({ secretWave: w }),
+  setDyingEnemies:    (e)    => set({ dyingEnemies: e }),
+  addDyingEnemy:      (e)    => set((s) => ({ dyingEnemies: [...s.dyingEnemies, e] })),
+  setKillEffect:      (e)    => { save("zb_kfx", e); set({ killEffect: e }); },
+
+  triggerPlayerDeath: () => {
+    const s = get();
+    set({ playerDead: true, deathPos: s.playerPosition.clone() });
+    setTimeout(() => { get().finishGame(); }, 2500);
+  },
+
+  triggerLevelComplete: (levelId, reward) => {
+    set({ levelCompleting: true });
+    setTimeout(() => {
+      const s = get();
+      const coins                 = s.coins + s.sessionCoins + reward;
+      const completedLevels       = s.completedLevels.includes(levelId)
+        ? s.completedLevels : [...s.completedLevels, levelId];
+      const highestUnlockedLevel  = Math.max(s.highestUnlockedLevel, levelId + 1);
+      const highestCompletedLevel = Math.max(s.highestCompletedLevel, levelId);
+      const highScore             = Math.max(s.timeSurvived, s.highScore);
+      const totalCoinsEarned      = s.totalCoinsEarned + s.sessionCoins + reward;
+      let ownedSkins = s.ownedSkins;
+      if (levelId >= 15 && !ownedSkins.includes("ghost_squad")) {
+        ownedSkins = [...ownedSkins, "ghost_squad"];
+        save("zb_skins", ownedSkins);
+      }
+      const quests = s.dailyQuests.map((q) => {
+        const upd = { ...q };
+        if (q.type === "kills")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.killCount));
+        if (q.type === "coins")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.sessionCoins + reward));
+        if (q.type === "waves")  upd.progress = Math.max(q.progress, Math.min(q.goal, s.wave));
+        return upd;
+      });
+      save("zb_quests", quests); save("zb_coins", coins);
+      save("zb_done", completedLevels); save("zb_lvl", highestUnlockedLevel);
+      save("zb_hcl",  highestCompletedLevel); save("zb_hs", highScore);
+      save("zb_tce",  totalCoinsEarned);
+      set({
+        phase: "start", levelCompleting: false, levelWon: true,
+        coins, completedLevels, highestUnlockedLevel, highestCompletedLevel,
+        highScore, ownedSkins, totalCoinsEarned, dailyQuests: quests,
+        tempWeapon: null, mapDrops: [],
+        secretPortalOpen: false, inSecretLevel: false, secretWave: 0,
+        playerDead: false, dyingEnemies: [],
+      });
+    }, 3000);
+  },
 
   addDamageEvent: (e) => {
     set((s) => ({ damageEvents: [...s.damageEvents.slice(-18), e] }));
@@ -419,7 +510,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
     save("zb_quests", quests);
     set({ phase: "gameover", levelWon: false, coins, highScore, totalCoinsEarned,
-      dailyQuests: quests, tempWeapon: null, mapDrops: [] });
+      dailyQuests: quests, tempWeapon: null, mapDrops: [],
+      secretPortalOpen: false, inSecretLevel: false, secretWave: 0,
+    });
   },
 
   completeLevel: (levelId, reward) => {
@@ -458,6 +551,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   restart: () => set((s) => ({
     ...INITIAL_SESSION, phase: "playing", gameKey: s.gameKey + 1,
+    playerDead: false, levelCompleting: false,
+    secretPortalOpen: false, inSecretLevel: false, secretWave: 0,
+    dyingEnemies: [],
   })),
 
   // Daily chest — 8% chance of 1–3 bonus gems

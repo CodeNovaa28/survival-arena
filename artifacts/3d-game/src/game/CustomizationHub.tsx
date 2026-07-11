@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { useGameStore } from "./store";
+import { useGameStore, KillEffectType } from "./store";
 import { CHARACTER_SKINS, TIER_COLORS } from "./gameSkins";
 import { GUNS, GUN_TIER_COLORS } from "./gameGuns";
 import { MAPS } from "./gameMaps";
 import { MELEE_WEAPONS, MELEE_TIER_COLORS } from "./gameMeleeWeapons";
 import { playPurchase } from "./sounds";
 
-type Tab = "character" | "guns" | "maps" | "melee";
+type Tab = "character" | "guns" | "maps" | "melee" | "kills";
 
 export default function CustomizationHub() {
   const [tab, setTab] = useState<Tab>("character");
@@ -67,6 +67,7 @@ export default function CustomizationHub() {
           { id: "guns",      label: "🔫 WEAPONS"   },
           { id: "melee",     label: "⚔️ MELEE"      },
           { id: "maps",      label: "🗺️ MAPS"        },
+          { id: "kills",     label: "💥 KILL FX"    },
         ] as const).map(({ id, label }) => (
           <button
             key={id}
@@ -90,6 +91,7 @@ export default function CustomizationHub() {
         {tab === "guns"      && <GunsTab />}
         {tab === "melee"     && <MeleeTab />}
         {tab === "maps"      && <MapsTab />}
+        {tab === "kills"     && <KillEffectsTab />}
       </div>
 
       <style>{`
@@ -613,4 +615,72 @@ function shopBtnStyle(bg: string, color: string): React.CSSProperties {
     cursor: "pointer", fontWeight: "bold", transition: "all 0.15s",
     width: "100%",
   };
+}
+
+// ─── Kill Effects tab ───────────────────────────────────────────────────────────
+const KILL_EFFECTS: { id: KillEffectType; label: string; icon: string; desc: string; color: string }[] = [
+  { id: "explosion",   label: "EXPLOSION",   icon: "💥", desc: "Classic fiery burst with shockwave",      color: "#f97316" },
+  { id: "dissolve",    label: "DISSOLVE",    icon: "🌿", desc: "Enemy melts in green particles",           color: "#22c55e" },
+  { id: "shatter",     label: "SHATTER",     icon: "🔵", desc: "Shatters into crystalline shards",         color: "#93c5fd" },
+  { id: "vaporize",    label: "VAPORIZE",    icon: "🌸", desc: "Vaporises in purple mist",                 color: "#c026d3" },
+  { id: "vortex",      label: "VORTEX",      icon: "🌀", desc: "Cyan spinning vortex",                     color: "#06b6d4" },
+  { id: "freeze",      label: "FREEZE",      icon: "❄️",  desc: "Shatters in frozen blue shards",          color: "#bfdbfe" },
+  { id: "electrocute", label: "ELECTROCUTE", icon: "⚡", desc: "Electric burst of lightning sparks",       color: "#facc15" },
+  { id: "disintegrate",label: "DISINTEGRATE",icon: "☠️", desc: "Collapses into a dark implosion",          color: "#7c3aed" },
+];
+
+function KillEffectsTab() {
+  const killEffect    = useGameStore((s) => s.killEffect);
+  const setKillEffect = useGameStore((s) => s.setKillEffect);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", letterSpacing: 3, marginBottom: 6 }}>
+          KILL EFFECT
+        </div>
+        <div style={{ fontSize: 12, color: "#64748b", letterSpacing: 1 }}>
+          Choose how enemies die. Purely cosmetic — no gameplay impact.
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+        {KILL_EFFECTS.map((ef) => {
+          const selected = killEffect === ef.id;
+          return (
+            <button
+              key={ef.id}
+              onClick={() => setKillEffect(ef.id)}
+              style={{
+                background: selected ? `${ef.color}18` : "rgba(255,255,255,0.03)",
+                border: selected ? `2px solid ${ef.color}80` : "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 12, padding: "16px 18px",
+                cursor: "pointer", textAlign: "left",
+                transition: "all 0.15s", position: "relative",
+                fontFamily: "'Courier New', monospace",
+              }}
+              onMouseEnter={(e) => {
+                if (!selected) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+              }}
+              onMouseLeave={(e) => {
+                if (!selected) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+              }}
+            >
+              {selected && (
+                <div style={{
+                  position: "absolute", top: 10, right: 12,
+                  fontSize: 9, color: ef.color, letterSpacing: 2, fontWeight: "bold",
+                }}>ACTIVE</div>
+              )}
+              <div style={{ fontSize: 26, marginBottom: 8 }}>{ef.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: selected ? ef.color : "#e2e8f0", letterSpacing: 2, marginBottom: 4 }}>
+                {ef.label}
+              </div>
+              <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.5 }}>{ef.desc}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

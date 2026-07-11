@@ -17,6 +17,7 @@ const CONFIGS: Record<EnemyType, EnemyConfig> = {
   ranged:  { bodyColor: "#ea580c", headColor: "#fb923c", accentColor: "#ffedd5", bodySize: [0.55, 0.9, 0.5],  headScale: 0.6  },
   speeder: { bodyColor: "#0891b2", headColor: "#22d3ee", accentColor: "#cffafe", bodySize: [0.45, 0.8, 0.45], headScale: 0.5  },
   bomber:  { bodyColor: "#65a30d", headColor: "#a3e635", accentColor: "#ecfccb", bodySize: [0.9,  1.1, 0.8],  headScale: 0.75 },
+  boss:    { bodyColor: "#0a0a0a", headColor: "#1c1917", accentColor: "#ef4444", bodySize: [2.2,  3.0, 1.8],  headScale: 0.7  },
 };
 
 function HealthBar({ hp, maxHp, height }: { hp: number; maxHp: number; height: number }) {
@@ -88,6 +89,31 @@ function EnemyMesh({ enemy }: { enemy: Enemy }) {
           <cylinderGeometry args={[0.03, 0.03, 0.4, 6]} />
           <meshBasicMaterial color={cfg.accentColor} />
         </mesh>
+      )}
+      {/* Boss: shoulder spikes + red eye glow + aura ring */}
+      {enemy.type === "boss" && (
+        <>
+          {/* Left spike */}
+          <mesh position={[-bw * 0.62, bh * 0.3, 0]} rotation={[0, 0, -0.5]}>
+            <coneGeometry args={[0.22, 0.9, 6]} />
+            <meshStandardMaterial color="#1c1917" metalness={0.9} roughness={0.2} />
+          </mesh>
+          {/* Right spike */}
+          <mesh position={[bw * 0.62, bh * 0.3, 0]} rotation={[0, 0, 0.5]}>
+            <coneGeometry args={[0.22, 0.9, 6]} />
+            <meshStandardMaterial color="#1c1917" metalness={0.9} roughness={0.2} />
+          </mesh>
+          {/* Red eye glow */}
+          <mesh position={[0, bh / 2 + (bw * cfg.headScale) * 0.08, -(bw * cfg.headScale) / 2 - 0.05]}>
+            <boxGeometry args={[0.55, 0.14, 0.04]} />
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.95} />
+          </mesh>
+          {/* Aura */}
+          <mesh position={[0, bh * 0.5, 0]}>
+            <sphereGeometry args={[bw * 0.85, 12, 12]} />
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.07} side={2} />
+          </mesh>
+        </>
       )}
       {/* Health bar */}
       <HealthBar hp={enemy.hp} maxHp={enemy.maxHp} height={bh / 2} />

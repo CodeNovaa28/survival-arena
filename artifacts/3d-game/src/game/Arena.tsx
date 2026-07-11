@@ -1,5 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 import { getMap } from "./gameMaps";
+import { useGameStore } from "./store";
 
 export const ARENA_SIZE = 90;
 export const ARENA_HALF = ARENA_SIZE / 2 - 1;
@@ -110,6 +113,81 @@ export default function Arena({ mapId = "urban" }: { mapId?: string }) {
             </mesh>
           </group>
         ))
+      )}
+
+      {/* Secret portal — always visible in corner, activates after wave 3 */}
+      <SecretPortal />
+    </group>
+  );
+}
+
+export const SECRET_PORTAL_POS = new THREE.Vector3(33, 0, -33);
+
+function SecretPortal() {
+  const open    = useGameStore((s) => s.secretPortalOpen);
+  const glowRef = useRef<THREE.MeshBasicMaterial>(null);
+  const frameRef= useRef<THREE.Group>(null);
+  const t       = useRef(0);
+
+  useFrame((_, delta) => {
+    t.current += delta;
+    if (glowRef.current) {
+      const pulse = Math.sin(t.current * (open ? 3.5 : 1.2)) * 0.5 + 0.5;
+      glowRef.current.opacity = open ? 0.55 + pulse * 0.35 : 0.12 + pulse * 0.08;
+      glowRef.current.color.setStyle(open ? "#a855f7" : "#334155");
+    }
+    if (frameRef.current) {
+      frameRef.current.rotation.y = open ? t.current * 0.6 : 0;
+    }
+  });
+
+  const px = SECRET_PORTAL_POS.x;
+  const pz = SECRET_PORTAL_POS.z;
+
+  return (
+    <group position={[px, 0, pz]}>
+      {/* Ground disc */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <circleGeometry args={[2.4, 32]} />
+        <meshBasicMaterial color={open ? "#7c3aed" : "#1e1b4b"} transparent opacity={open ? 0.35 : 0.12} />
+      </mesh>
+
+      {/* Portal arch — left pillar */}
+      <mesh position={[-0.9, 1.8, 0]} castShadow>
+        <boxGeometry args={[0.35, 3.6, 0.35]} />
+        <meshStandardMaterial color="#1e1b4b" metalness={0.6} roughness={0.4} />
+      </mesh>
+      {/* Portal arch — right pillar */}
+      <mesh position={[0.9, 1.8, 0]} castShadow>
+        <boxGeometry args={[0.35, 3.6, 0.35]} />
+        <meshStandardMaterial color="#1e1b4b" metalness={0.6} roughness={0.4} />
+      </mesh>
+      {/* Portal arch — top bar */}
+      <mesh position={[0, 3.7, 0]} castShadow>
+        <boxGeometry args={[2.15, 0.38, 0.38]} />
+        <meshStandardMaterial color="#1e1b4b" metalness={0.6} roughness={0.4} />
+      </mesh>
+
+      {/* Portal inner glow (face -Z = toward arena center from corner) */}
+      <mesh position={[0, 1.85, 0.01]}>
+        <planeGeometry args={[1.5, 3.4]} />
+        <meshBasicMaterial ref={glowRef} color="#334155" transparent opacity={0.12} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* Spinning inner ring (when open) */}
+      <group ref={frameRef} position={[0, 1.85, 0]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.65, 0.06, 8, 32]} />
+          <meshBasicMaterial color={open ? "#c084fc" : "#334155"} transparent opacity={open ? 0.8 : 0.2} />
+        </mesh>
+      </group>
+
+      {/* Label when open */}
+      {open && (
+        <mesh position={[0, 4.35, 0]}>
+          <boxGeometry args={[2.0, 0.38, 0.06]} />
+          <meshBasicMaterial color="#7c3aed" transparent opacity={0.9} />
+        </mesh>
       )}
     </group>
   );

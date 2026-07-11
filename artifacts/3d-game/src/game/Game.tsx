@@ -14,6 +14,8 @@ import CameraController from "./CameraController";
 import Companions from "./Companions";
 import MeleeEffect from "./MeleeEffect";
 import DamageNumbers from "./DamageNumbers";
+import DeathParticles from "./DeathParticles";
+import KillEffects from "./KillEffects";
 import HUD from "./HUD";
 import StartScreen from "./StartScreen";
 import GameOverScreen from "./GameOverScreen";
@@ -65,6 +67,8 @@ function Scene({ mapId }: { mapId: string }) {
       <MeleeEffect />
       <DamageNumbers />
       <MapDropItems />
+      <DeathParticles />
+      <KillEffects />
       <GameLogic />
       <CameraController />
     </>
@@ -72,12 +76,16 @@ function Scene({ mapId }: { mapId: string }) {
 }
 
 export default function Game() {
-  const phase       = useGameStore((s) => s.phase);
-  const gameKey     = useGameStore((s) => s.gameKey);
-  const paused      = useGameStore((s) => s.paused);
-  const selectedMap = useGameStore((s) => s.selectedMap);
-  const setPaused   = useGameStore((s) => s.setPaused);
-  const gameMode    = useGameStore((s) => s.gameMode);
+  const phase          = useGameStore((s) => s.phase);
+  const gameKey        = useGameStore((s) => s.gameKey);
+  const paused         = useGameStore((s) => s.paused);
+  const selectedMap    = useGameStore((s) => s.selectedMap);
+  const setPaused      = useGameStore((s) => s.setPaused);
+  const gameMode       = useGameStore((s) => s.gameMode);
+  const levelCompleting= useGameStore((s) => s.levelCompleting);
+  const secretPortalOpen=useGameStore((s) => s.secretPortalOpen);
+  const inSecretLevel  = useGameStore((s) => s.inSecretLevel);
+  const secretWave     = useGameStore((s) => s.secretWave);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -89,7 +97,7 @@ export default function Game() {
     return () => window.removeEventListener("keydown", onKey);
   }, [phase]);
 
-  const showCanvas = phase === "playing" || phase === "gameover";
+  const showCanvas = phase === "playing" || phase === "gameover" || levelCompleting;
 
   return (
     <div style={{
@@ -119,6 +127,71 @@ export default function Game() {
         </KeyboardControls>
       )}
 
+      {/* Level-complete flash overlay */}
+      {levelCompleting && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 80,
+            background: "radial-gradient(ellipse at center, rgba(250,204,21,0.35) 0%, rgba(255,255,255,0.18) 60%, transparent 100%)",
+            animation: "zbFlash 0.6s ease-out forwards",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {/* Level-complete banner */}
+      {levelCompleting && (
+        <div style={{
+          position: "fixed", top: "38%", left: "50%", transform: "translateX(-50%)",
+          zIndex: 90, textAlign: "center", pointerEvents: "none",
+          animation: "zbSlideUp 0.4s ease-out forwards",
+        }}>
+          <div style={{
+            fontSize: 48, fontWeight: 900, color: "#facc15",
+            fontFamily: "'Courier New', monospace", letterSpacing: 6,
+            textShadow: "0 0 30px rgba(250,204,21,0.7), 0 4px 24px #000",
+          }}>LEVEL COMPLETE</div>
+          <div style={{ fontSize: 16, color: "#fde68a", letterSpacing: 4, marginTop: 8 }}>
+            RETURNING TO BASE…
+          </div>
+        </div>
+      )}
+
+      {/* Secret portal notification */}
+      {secretPortalOpen && !inSecretLevel && phase === "playing" && (
+        <div style={{
+          position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)",
+          zIndex: 60, textAlign: "center", pointerEvents: "none",
+          animation: "zbPulse 2s ease-in-out infinite",
+        }}>
+          <div style={{
+            background: "rgba(124,58,237,0.25)", border: "1px solid rgba(168,85,247,0.6)",
+            borderRadius: 12, padding: "10px 26px",
+            fontSize: 13, color: "#c084fc",
+            fontFamily: "'Courier New', monospace", letterSpacing: 3,
+          }}>🔮 SECRET PATH UNLOCKED — NE CORNER</div>
+        </div>
+      )}
+
+      {/* Secret level wave banner */}
+      {inSecretLevel && phase === "playing" && (
+        <div style={{
+          position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)",
+          zIndex: 60, pointerEvents: "none",
+        }}>
+          <div style={{
+            background: "rgba(124,58,237,0.35)", border: "1px solid rgba(168,85,247,0.7)",
+            borderRadius: 12, padding: "10px 28px", textAlign: "center",
+            fontSize: 13, color: "#e879f9",
+            fontFamily: "'Courier New', monospace", letterSpacing: 3,
+          }}>
+            {secretWave < 4
+              ? `☠️ SECRET ZONE — WAVE ${secretWave}/4`
+              : "💀 BOSS WAVE — DEFEAT THE GUARDIAN"}
+          </div>
+        </div>
+      )}
+
       {phase === "playing" && <HUD />}
       {phase === "playing" && gameMode === "practice" && (
         <div style={{
@@ -133,7 +206,22 @@ export default function Game() {
       {phase === "gameover" && <GameOverScreen />}
 
       {/* Help button — always visible except during gameplay */}
-      {phase !== "playing" && <HelpButton />}
+      {phase !== "playing" && !levelCompleting && <HelpButton />}
+
+      <style>{`
+        @keyframes zbFlash {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes zbSlideUp {
+          0%   { opacity: 0; transform: translateX(-50%) translateY(20px); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes zbPulse {
+          0%, 100% { opacity: 0.7; }
+          50%       { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -15,6 +15,7 @@ export interface LevelDef {
   difficulty: 1 | 2 | 3 | 4 | 5;
   reward: number;
   milestoneLabel?: string;
+  hasSecretPath?: boolean;
 }
 
 export const LEVELS: LevelDef[] = [
@@ -52,7 +53,7 @@ export const LEVELS: LevelDef[] = [
     waves: 8, baseEnemyCount: 7, enemyCountPerWave: 2,
     speedMult: 1.1, hpMult: 1.0, safeZoneShrinkMult: 1.5,
     allowedTypes: ["chaser","ranged","tank","speeder"], mapId: "ice", difficulty: 2, reward: 80,
-    milestoneLabel: "🛸 Unlocks Drone Strike",
+    milestoneLabel: "🛸 Unlocks Drone Strike", hasSecretPath: true,
   },
   {
     id: 6, name: "Full Breach",
@@ -89,6 +90,7 @@ export const LEVELS: LevelDef[] = [
     waves: 14, baseEnemyCount: 10, enemyCountPerWave: 4,
     speedMult: 1.4, hpMult: 1.5, safeZoneShrinkMult: 1.8,
     allowedTypes: ["chaser","ranged","tank","speeder","bomber"], mapId: "volcano", difficulty: 5, reward: 250,
+    hasSecretPath: true,
   },
   {
     id: 11, name: "Nightmare Protocol",
@@ -124,7 +126,7 @@ export const LEVELS: LevelDef[] = [
     waves: 16, baseEnemyCount: 12, enemyCountPerWave: 5,
     speedMult: 2.0, hpMult: 2.2, safeZoneShrinkMult: 2.2,
     allowedTypes: ["chaser","ranged","tank","speeder","bomber"], mapId: "shadow", difficulty: 5, reward: 500,
-    milestoneLabel: "⚔️ Unlocks Ghost Squad Skin",
+    milestoneLabel: "⚔️ Unlocks Ghost Squad Skin", hasSecretPath: true,
   },
   {
     id: 16, name: "Titan's March",

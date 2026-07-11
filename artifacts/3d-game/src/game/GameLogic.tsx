@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGameStore, Enemy, EnemyType, Bullet, PowerUpType, ActivePowerUp, DamageEvent } from "./store";
-import { getObstacles, ARENA_HALF } from "./Arena";
+import { getObstacles, ARENA_HALF, SECRET_PORTAL_POS } from "./Arena";
 import { getGun } from "./gameGuns";
 import { getMeleeWeapon } from "./gameMeleeWeapons";
 import { CHARACTER_SKINS } from "./gameSkins";
@@ -18,10 +18,11 @@ const ENEMY_DEFS: Record<EnemyType, { hp:number; speed:number; damage:number; al
   ranged:  { hp:  50, speed: 2.8, damage: 14, alertRadius: 35 },
   speeder: { hp:  20, speed: 9.0, damage:  8, alertRadius: 40 },
   bomber:  { hp:  90, speed: 2.5, damage: 25, alertRadius: 25 },
+  boss:    { hp: 800, speed: 1.5, damage: 35, alertRadius: 45 },
 };
 
 const COIN_REWARDS: Record<EnemyType, number> = {
-  chaser: 3, ranged: 6, speeder: 5, tank: 12, bomber: 10,
+  chaser: 3, ranged: 6, speeder: 5, tank: 12, bomber: 10, boss: 200,
 };
 
 const POWERUP_DURATION: Record<PowerUpType, number> = {
@@ -60,7 +61,7 @@ function randomArenaPos(r: number): THREE.Vector3 {
   return new THREE.Vector3(Math.cos(a)*d, 0.5, Math.sin(a)*d);
 }
 
-const WEIGHTED: Record<EnemyType, number> = { chaser:3, ranged:2, speeder:2, tank:1, bomber:1 };
+const WEIGHTED: Record<EnemyType, number> = { chaser:3, ranged:2, speeder:2, tank:1, bomber:1, boss:0 };
 function pickType(allowed: EnemyType[]): EnemyType {
   const pool = allowed.flatMap((t) => Array<EnemyType>(WEIGHTED[t]).fill(t));
   return pool[Math.floor(Math.random()*pool.length)];
@@ -115,6 +116,29 @@ function buildWaveLevel(
     makeEnemy(pickType(allowed), spMult, hpMult, `l${levelId}_w${waveNum}_${i}`));
 }
 
+function buildSecretWave(secretWave: number): Enemy[] {
+  if (secretWave >= 4) {
+    // Final boss wave — one massive boss enemy
+    const def = ENEMY_DEFS.boss;
+    return [{
+      id:           `boss_${Date.now()}`,
+      position:     new THREE.Vector3(0, 0.7, -20),
+      hp: def.hp, maxHp: def.hp,
+      type:         "boss" as EnemyType,
+      speed:        def.speed, baseDamage: def.damage,
+      lastShot:     0, lastDamageTime: -99,
+      alertRadius:  def.alertRadius, zigzagPhase: 0,
+    }];
+  }
+  // Secret waves 1-3: fast, high-HP chasers + tanks
+  const all: EnemyType[] = ["chaser","ranged","tank","speeder","bomber"];
+  const count  = 5 + secretWave * 3;
+  const spMult = 1.8 + secretWave * 0.3;
+  const hpMult = 2.0 + secretWave * 0.5;
+  return Array.from({length:count}, (_,i) =>
+    makeEnemy(pickType(all), spMult, hpMult, `secret${secretWave}_${i}`));
+}
+
 function obstacleHit(pos: THREE.Vector3, obs: ReturnType<typeof getObstacles>): boolean {
   for (const o of obs) {
     if (Math.abs(pos.x-o.x)<o.w/2+0.15 && Math.abs(pos.z-o.z)<o.d/2+0.15 && pos.y<o.h) return true;
@@ -152,9 +176,11 @@ export default function GameLogic() {
   const waveLockedRef    = useRef(false);
   const zoneSoundRef     = useRef(0);
   const wavesSpawnedRef  = useRef(1);
-  const levelCompleteRef   = useRef(false);
-  const checkpointSavedRef = useRef(false);
-  const obstaclesRef     = useRef(getObstacles("urban"));
+  const levelCompleteRef    = useRef(false);
+  const checkpointSavedRef  = useRef(false);
+  const obstaclesRef        = useRef(getObstacles("urban"));
+  const secretWaveLockedRef = useRef(false);
+  const portalNotifiedRef   = useRef(false);
 
   // Companion timers
   const droneTimerRef    = useRef(0);
@@ -180,8 +206,10 @@ export default function GameLogic() {
     const skin = CHARACTER_SKINS.find((sk) => sk.id === s.selectedSkin);
 
     obstaclesRef.current     = getObstacles(s.selectedMap);
-    levelCompleteRef.current   = false;
-    checkpointSavedRef.current = false;
+    levelCompleteRef.current    = false;
+    checkpointSavedRef.current  = false;
+    secretWaveLockedRef.current = false;
+    portalNotifiedRef.current   = false;
     wavesSpawnedRef.current    = 1;
     gameTimeRef.current      = 0;
     waveTimerRef.current     = WAVE_DURATION;
@@ -389,29 +417,82 @@ export default function GameLogic() {
       } else { remainingPUs.push(pu); }
     }
 
+    // ── Secret portal proximity check ─────────────────────────────────────────
+    if (!s.inSecretLevel) {
+      const pdx = playerPos.x - SECRET_PORTAL_POS.x;
+      const pdz = playerPos.z - SECRET_PORTAL_POS.z;
+      if (s.secretPortalOpen && Math.sqrt(pdx*pdx+pdz*pdz) < 2.5) {
+        s.setInSecretLevel(true); s.setSecretWave(1);
+        s.setEnemies(buildSecretWave(1));
+        waveTimerRef.current = 25; playWaveStart();
+      }
+    }
+
     // ── Wave logic ─────────────────────────────────────────────────────────
     const waveExhausted = enemies.length===0 && now>3;
-    if (gameMode==="levels" && levelDef) {
-      if (waveExhausted && wavesSpawnedRef.current>=levelDef.waves && !waveLockedRef.current) {
-        levelCompleteRef.current = true; playLevelComplete();
-        s.setTimeSurvived(newTime); s.completeLevel(s.currentLevel, levelDef.reward);
+
+    // Secret level wave progression
+    if (s.inSecretLevel) {
+      if (waveExhausted && !secretWaveLockedRef.current) {
+        secretWaveLockedRef.current = true;
+        const sw = s.secretWave;
+        if (sw >= 4) {
+          // Boss defeated — award bonus, end secret level
+          s.addSessionCoins(500);
+          s.addDamageEvent({ id:`sb_${Date.now()}`, x:playerPos.x, z:playerPos.z-1, value:500, crit:true, melee:false });
+          playLevelComplete();
+          s.setInSecretLevel(false); s.setSecretPortalOpen(false);
+          // Respawn back into normal wave
+          if (gameMode==="levels" && levelDef) {
+            s.setEnemies(buildWaveLevel(levelDef.id,wavesSpawnedRef.current,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave));
+          } else { s.setEnemies(buildWaveEndless(s.wave)); }
+          waveTimerRef.current = WAVE_DURATION;
+          setTimeout(() => { secretWaveLockedRef.current=false; }, 400);
+        } else {
+          const nextSw = sw+1; s.setSecretWave(nextSw);
+          s.setEnemies(buildSecretWave(nextSw));
+          waveTimerRef.current = 25;
+          nextSw>=4 ? playLevelComplete() : playWaveStart();
+          setTimeout(() => { secretWaveLockedRef.current=false; }, 200);
+        }
         return;
       }
-      if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current && wavesSpawnedRef.current<levelDef.waves) {
-        waveLockedRef.current = true;
-        const nw = wavesSpawnedRef.current+1;
-        wavesSpawnedRef.current = nw; s.setWave(nw);
-        s.setEnemies([...enemies,...buildWaveLevel(levelDef.id,nw,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave)]);
-        waveTimerRef.current = WAVE_DURATION; playWaveStart();
-        setTimeout(() => { waveLockedRef.current=false; }, 200); return;
-      }
+      // Skip normal wave logic when in secret level
     } else {
-      if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current) {
-        waveLockedRef.current = true;
-        const nw=s.wave+1; s.setWave(nw);
-        s.setEnemies([...enemies,...buildWaveEndless(nw)]);
-        waveTimerRef.current=WAVE_DURATION; playWaveStart();
-        setTimeout(() => { waveLockedRef.current=false; }, 200); return;
+      // ── Secret portal activation — unlock after wave 3 in qualifying levels ─
+      if (!portalNotifiedRef.current && !s.secretPortalOpen) {
+        const shouldActivate = (
+          (gameMode==="levels" && levelDef?.hasSecretPath && wavesSpawnedRef.current >= 3) ||
+          (gameMode==="endless" && s.wave >= 6)
+        );
+        if (shouldActivate) {
+          portalNotifiedRef.current = true;
+          s.setSecretPortalOpen(true);
+        }
+      }
+
+      if (gameMode==="levels" && levelDef) {
+        if (waveExhausted && wavesSpawnedRef.current>=levelDef.waves && !waveLockedRef.current) {
+          levelCompleteRef.current = true; playLevelComplete();
+          s.setTimeSurvived(newTime); s.triggerLevelComplete(s.currentLevel, levelDef.reward);
+          return;
+        }
+        if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current && wavesSpawnedRef.current<levelDef.waves) {
+          waveLockedRef.current = true;
+          const nw = wavesSpawnedRef.current+1;
+          wavesSpawnedRef.current = nw; s.setWave(nw);
+          s.setEnemies([...enemies,...buildWaveLevel(levelDef.id,nw,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave)]);
+          waveTimerRef.current = WAVE_DURATION; playWaveStart();
+          setTimeout(() => { waveLockedRef.current=false; }, 200); return;
+        }
+      } else {
+        if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current) {
+          waveLockedRef.current = true;
+          const nw=s.wave+1; s.setWave(nw);
+          s.setEnemies([...enemies,...buildWaveEndless(nw)]);
+          waveTimerRef.current=WAVE_DURATION; playWaveStart();
+          setTimeout(() => { waveLockedRef.current=false; }, 200); return;
+        }
       }
     }
 
@@ -504,6 +585,15 @@ export default function GameLogic() {
         totalCoinsEarned+=COIN_REWARDS[e.type];
         s.recordKill(e.type);
         killsThisFrame++;
+        // Spawn kill effect
+        const ENEMY_COLORS: Record<EnemyType, string> = {
+          chaser:"#dc2626",tank:"#6d28d9",ranged:"#ea580c",
+          speeder:"#0891b2",bomber:"#65a30d",boss:"#ef4444",
+        };
+        s.addDyingEnemy({
+          id: e.id, pos: e.position.clone(),
+          color: ENEMY_COLORS[e.type], createdAt: Date.now(), effect: s.killEffect,
+        });
         continue;
       }
       if (dmg > 0) playEnemyHit();
@@ -722,7 +812,7 @@ export default function GameLogic() {
       s.setPlayerHp(finalHp);
       if (finalHp <= 0) {
         if (s.reviveAvailable) { s.revive(); }
-        else { playGameOver(); s.finishGame(); }
+        else { playGameOver(); s.triggerPlayerDeath(); }
       }
     }
   });

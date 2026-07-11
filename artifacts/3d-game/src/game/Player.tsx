@@ -154,7 +154,7 @@ export default function Player() {
 
     mesh.position.set(posRef.current.x, 0, posRef.current.z);
     store.setPlayerPosition(posRef.current.clone());
-    mesh.rotation.y = Math.atan2(aimRef.current.x, aimRef.current.z);
+    mesh.rotation.y = Math.atan2(aimRef.current.x, aimRef.current.z) + Math.PI;
   });
 
   const hasShield = useGameStore((s) => s.activePowerUps.some((p) => p.type === "shield"));
