@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "fmgInOKaKqwggUFQFdrq8"
+uri = "file://project-export.zip"
+type = "unspecified"
+title = "Project Export"
+description = "Complete project source code — all artifacts, configs, and workspace files. Node_modules and .git excluded."
