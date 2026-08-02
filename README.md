@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Survival Arena](https://img.shields.io/badge/Zone%20Breach-3D%20Survival%20Arena-red?style=for-the-badge&logo=gamepad)
+![Survival Arena](https://img.shields.io/badge/Survival%20Arena-3D%20Survival%20Arena-red?style=for-the-badge&logo=gamepad)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=for-the-badge&logo=typescript)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
 ![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite)
