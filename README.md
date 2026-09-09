@@ -1,8 +1,8 @@
-# 🎮 Zone Breach
+# 🎮 Survival Arena
 
 <div align="center">
 
-![Zone Breach](https://img.shields.io/badge/Zone%20Breach-3D%20Survival%20Arena-red?style=for-the-badge&logo=gamepad)
+![Survival Arena](https://img.shields.io/badge/Survival%20Arena-3D%20Survival%20Arena-red?style=for-the-badge&logo=gamepad)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=for-the-badge&logo=typescript)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)
 ![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite)
@@ -20,7 +20,7 @@ Survive waves of enemies, unlock powerful weapons, and dominate the arena across
 
 ## 📸 Overview
 
-Zone Breach drops you into a relentless survival arena where each wave brings deadlier enemies. Master a growing arsenal of ranged and melee weapons, recruit AI companions, and fight through story-driven levels or endlessly grind for supremacy. Earn coins, gems, and rewards every day — then spend them on unlockable skins, maps, and gear.
+Survival Arena drops you into a relentless survival arena where each wave brings deadlier enemies. Master a growing arsenal of ranged and melee weapons, recruit AI companions, and fight through story-driven levels or endlessly grind for supremacy. Earn coins, gems, and rewards every day — then spend them on unlockable skins, maps, and gear.
 
 ---
 
@@ -350,7 +350,7 @@ artifacts/3d-game/
 ```
 MIT License
 
-Copyright (c) 2026 Zone Breach Contributors
+Copyright (c) 2026 Survival Arena Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
