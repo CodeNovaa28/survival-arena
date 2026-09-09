@@ -30,13 +30,6 @@ Survival Arena drops you into a relentless survival arena where each wave brings
   <img src="artifacts/3d-game/public/assets/screenshots/zone-breach-start.jpg" alt="Zone Breach start screen showing Endless, Levels, Practice, Customization, Daily Rewards, Minigames, and Settings" width="88%" />
   <br />
   <em>The Zone Breach command screen — choose a mode, customize your loadout, and claim daily rewards.</em>
-</div>
-
-<br />
-
-<div align="center">
-  <img src="artifacts/3d-game/public/assets/images/opengraph.jpg" alt="Zone Breach promotional artwork" width="44%" />
-</div>
 
 <img width="1920" height="881" alt="image" src="https://github.com/user-attachments/assets/88971162-ddb7-4b8d-85aa-8c82f5a60c71" />
 <img width="1920" height="877" alt="image" src="https://github.com/user-attachments/assets/ac9a285e-94b3-4f60-b412-932817611009" />
