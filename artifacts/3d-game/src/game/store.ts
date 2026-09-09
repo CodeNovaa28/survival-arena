@@ -218,6 +218,7 @@ interface GameState {
   purchaseMeleeWithGems: (id: string, gemCost: number) => boolean;
   setMusicVolume: (v: number) => void; setSfxVolume: (v: number) => void;
   setStoryEnabled: (b: boolean) => void;
+  saveProgress: () => void;
   addCoins: (n: number) => void;
   addGems: (n: number) => void;
   spendGems: (n: number) => boolean;
@@ -236,6 +237,61 @@ interface GameState {
   // Milestones
   addPermanentPerk: (perk: string) => void;
 }
+
+type PersistedProfile = Pick<GameState,
+  | "coins" | "gems" | "storyEnabled"
+  | "ownedSkins" | "selectedSkin" | "ownedGuns" | "selectedGun"
+  | "ownedMaps" | "selectedMap" | "ownedMelees" | "selectedMelee"
+  | "highestUnlockedLevel" | "highestCompletedLevel" | "completedLevels"
+  | "totalKillsByType" | "musicVolume" | "sfxVolume" | "highScore"
+  | "totalCoinsEarned" | "permanentPerks" | "lastDailyChest"
+  | "lastDailySpin" | "dailyQuests" | "dailyQuestsDate" | "killEffect"
+>;
+
+const persistedProfile = load<Partial<PersistedProfile>>("zb_profile_v1", {});
+
+function loadProfileValue<T>(key: string, fallback: T, profileValue: T | undefined): T {
+  return load(key, profileValue ?? fallback);
+}
+
+function persistProfile(state: GameState) {
+  save("zb_profile_v1", {
+    coins: state.coins,
+    gems: state.gems,
+    storyEnabled: state.storyEnabled,
+    ownedSkins: state.ownedSkins,
+    selectedSkin: state.selectedSkin,
+    ownedGuns: state.ownedGuns,
+    selectedGun: state.selectedGun,
+    ownedMaps: state.ownedMaps,
+    selectedMap: state.selectedMap,
+    ownedMelees: state.ownedMelees,
+    selectedMelee: state.selectedMelee,
+    highestUnlockedLevel: state.highestUnlockedLevel,
+    highestCompletedLevel: state.highestCompletedLevel,
+    completedLevels: state.completedLevels,
+    totalKillsByType: state.totalKillsByType,
+    musicVolume: state.musicVolume,
+    sfxVolume: state.sfxVolume,
+    highScore: state.highScore,
+    totalCoinsEarned: state.totalCoinsEarned,
+    permanentPerks: state.permanentPerks,
+    lastDailyChest: state.lastDailyChest,
+    lastDailySpin: state.lastDailySpin,
+    dailyQuests: state.dailyQuests,
+    dailyQuestsDate: state.dailyQuestsDate,
+    killEffect: state.killEffect,
+  } satisfies PersistedProfile);
+}
+
+const PERSISTED_FIELDS: (keyof PersistedProfile)[] = [
+  "coins", "gems", "storyEnabled", "ownedSkins", "selectedSkin",
+  "ownedGuns", "selectedGun", "ownedMaps", "selectedMap", "ownedMelees",
+  "selectedMelee", "highestUnlockedLevel", "highestCompletedLevel",
+  "completedLevels", "totalKillsByType", "musicVolume", "sfxVolume",
+  "highScore", "totalCoinsEarned", "permanentPerks", "lastDailyChest",
+  "lastDailySpin", "dailyQuests", "dailyQuestsDate", "killEffect",
+];
 
 const INITIAL_SESSION = {
   phase:        "start" as GamePhase, gameKey: 0,
@@ -260,31 +316,31 @@ const INITIAL_SESSION = {
 
 export const useGameStore = create<GameState>((set, get) => ({
   // Persistent
-  coins:                 load("zb_coins",  0),
-  gems:                  load("zb_gems",   0),
-  storyEnabled:          load("zb_story",  false),
-  ownedSkins:            load("zb_skins",   ["soldier"]),
-  selectedSkin:          load("zb_skin",    "soldier"),
-  ownedGuns:             load("zb_guns",    ["pistol"]),
-  selectedGun:           load("zb_gun",     "pistol"),
-  ownedMaps:             load("zb_maps",    ["urban"]),
-  selectedMap:           load("zb_map",     "urban"),
-  ownedMelees:           load("zb_melees",  ["fists"]),
-  selectedMelee:         load("zb_melee",   "fists"),
-  highestUnlockedLevel:  load("zb_lvl",     1),
-  highestCompletedLevel: load("zb_hcl",     0),
-  completedLevels:       load("zb_done",    []) as number[],
-  totalKillsByType:      load("zb_kills",   {}) as Partial<Record<EnemyType, number>>,
-  musicVolume:           load("zb_mvol",    0.35),
-  sfxVolume:             load("zb_svol",    0.7),
-  highScore:             load("zb_hs",      0),
-  totalCoinsEarned:      load("zb_tce",     0),
-  permanentPerks:        load("zb_perks",   []) as string[],
-  lastDailyChest:        load("zb_chest",   ""),
-  lastDailySpin:         load("zb_spin",    ""),
-  dailyQuests:           load("zb_quests",  []) as DailyQuest[],
-  dailyQuestsDate:       load("zb_qdate",   ""),
-  killEffect:            load("zb_kfx",     "explosion") as KillEffectType,
+  coins:                 loadProfileValue("zb_coins",  0, persistedProfile.coins),
+  gems:                  loadProfileValue("zb_gems",   0, persistedProfile.gems),
+  storyEnabled:          loadProfileValue("zb_story",  false, persistedProfile.storyEnabled),
+  ownedSkins:            loadProfileValue("zb_skins",  ["soldier"], persistedProfile.ownedSkins),
+  selectedSkin:          loadProfileValue("zb_skin",   "soldier", persistedProfile.selectedSkin),
+  ownedGuns:             loadProfileValue("zb_guns",   ["pistol"], persistedProfile.ownedGuns),
+  selectedGun:           loadProfileValue("zb_gun",    "pistol", persistedProfile.selectedGun),
+  ownedMaps:             loadProfileValue("zb_maps",   ["urban"], persistedProfile.ownedMaps),
+  selectedMap:           loadProfileValue("zb_map",    "urban", persistedProfile.selectedMap),
+  ownedMelees:           loadProfileValue("zb_melees", ["fists"], persistedProfile.ownedMelees),
+  selectedMelee:         loadProfileValue("zb_melee",  "fists", persistedProfile.selectedMelee),
+  highestUnlockedLevel:  loadProfileValue("zb_lvl",    1, persistedProfile.highestUnlockedLevel),
+  highestCompletedLevel: loadProfileValue("zb_hcl",    0, persistedProfile.highestCompletedLevel),
+  completedLevels:       loadProfileValue("zb_done",   [], persistedProfile.completedLevels) as number[],
+  totalKillsByType:      loadProfileValue("zb_kills",  {}, persistedProfile.totalKillsByType) as Partial<Record<EnemyType, number>>,
+  musicVolume:           loadProfileValue("zb_mvol",   0.35, persistedProfile.musicVolume),
+  sfxVolume:             loadProfileValue("zb_svol",   0.7, persistedProfile.sfxVolume),
+  highScore:             loadProfileValue("zb_hs",     0, persistedProfile.highScore),
+  totalCoinsEarned:      loadProfileValue("zb_tce",    0, persistedProfile.totalCoinsEarned),
+  permanentPerks:        loadProfileValue("zb_perks",  [], persistedProfile.permanentPerks) as string[],
+  lastDailyChest:        loadProfileValue("zb_chest",  "", persistedProfile.lastDailyChest),
+  lastDailySpin:         loadProfileValue("zb_spin",   "", persistedProfile.lastDailySpin),
+  dailyQuests:           loadProfileValue("zb_quests", [], persistedProfile.dailyQuests) as DailyQuest[],
+  dailyQuestsDate:       loadProfileValue("zb_qdate",  "", persistedProfile.dailyQuestsDate),
+  killEffect:            loadProfileValue("zb_kfx",    "explosion", persistedProfile.killEffect) as KillEffectType,
 
   // Session
   ...INITIAL_SESSION,
@@ -478,6 +534,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMusicVolume:  (v) => { save("zb_mvol", v); set({ musicVolume: v }); },
   setSfxVolume:    (v) => { save("zb_svol", v); set({ sfxVolume: v }); },
   setStoryEnabled: (b) => { save("zb_story", b); set({ storyEnabled: b }); },
+  saveProgress:    () => { persistProfile(get()); },
 
   addCoins: (n) => {
     const s = get(); const coins = s.coins + n;
@@ -625,3 +682,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ permanentPerks: perks });
   },
 }));
+
+// Keep one versioned snapshot in sync with the legacy keys above. This makes
+// saves resilient on static hosts such as Vercel and gives future migrations a
+// single profile record to read.
+useGameStore.subscribe((state, previousState) => {
+  if (PERSISTED_FIELDS.some((field) => state[field] !== previousState[field])) {
+    persistProfile(state);
+  }
+});
+persistProfile(useGameStore.getState());

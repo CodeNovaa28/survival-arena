@@ -97,6 +97,12 @@ export default function Game() {
     return () => window.removeEventListener("keydown", onKey);
   }, [phase]);
 
+  useEffect(() => {
+    const saveBeforeLeaving = () => useGameStore.getState().saveProgress();
+    window.addEventListener("beforeunload", saveBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", saveBeforeLeaving);
+  }, []);
+
   const showCanvas = phase === "playing" || phase === "gameover" || levelCompleting;
 
   return (
