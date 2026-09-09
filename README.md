@@ -20,7 +20,7 @@ Survive waves of enemies, unlock powerful weapons, and dominate the arena across
 
 ## 📸 Overview
 
-Zone Breach drops you into a relentless survival arena where each wave brings deadlier enemies. Master a growing arsenal of ranged and melee weapons, recruit AI companions, and fight through story-driven levels or endlessly grind for supremacy. Earn coins, gems, and rewards every day — then spend them on unlockable skins, maps, and gear.
+Survival Arena drops you into a relentless survival arena where each wave brings deadlier enemies. Master a growing arsenal of ranged and melee weapons, recruit AI companions, and fight through story-driven levels or endlessly grind for supremacy. Earn coins, gems, and rewards every day — then spend them on unlockable skins, maps, and gear.
 
 ---
 
@@ -151,7 +151,7 @@ pnpm --filter @workspace/3d-game run build
 ```
 MIT License
 
-Copyright (c) 2026 Zone Breach Contributors
+Copyright (c) 2026 Survival Arena Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
