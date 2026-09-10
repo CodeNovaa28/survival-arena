@@ -2,7 +2,15 @@ import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGameStore, Enemy, EnemyType, Bullet, PowerUpType, ActivePowerUp, DamageEvent } from "./store";
-import { getObstacles, ARENA_HALF, SECRET_PORTAL_POS } from "./Arena";
+import {
+  getObstacles,
+  ARENA_HALF,
+  ENEMY_RADIUS,
+  getPlayerSpawnPosition,
+  isPositionClear,
+  moveWithObstacleCollision,
+  SECRET_PORTAL_POS,
+} from "./Arena";
 import { getGun } from "./gameGuns";
 import { getMeleeWeapon } from "./gameMeleeWeapons";
 import { CHARACTER_SKINS } from "./gameSkins";
@@ -44,15 +52,56 @@ let bulletId  = 0;
 let puId      = 0;
 let dmgEvtId  = 0;
 
-function spawnPos(): THREE.Vector3 {
-  const side = Math.floor(Math.random() * 4);
-  const h = ARENA_HALF;
-  switch (side) {
-    case 0: return new THREE.Vector3((Math.random()*2-1)*h, 0.7, -h);
-    case 1: return new THREE.Vector3((Math.random()*2-1)*h, 0.7,  h);
-    case 2: return new THREE.Vector3(-h, 0.7, (Math.random()*2-1)*h);
-    default:return new THREE.Vector3( h, 0.7, (Math.random()*2-1)*h);
+type SpawnContext = {
+  playerPosition: THREE.Vector3;
+  obstacles: ReturnType<typeof getObstacles>;
+};
+
+function pathIsClear(
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  obstacleList: ReturnType<typeof getObstacles>,
+) {
+  const distance = from.distanceTo(to);
+  const steps = Math.ceil(distance / 0.75);
+  for (let i = 0; i <= steps; i++) {
+    const point = from.clone().lerp(to, i / Math.max(1, steps));
+    if (!isPositionClear(point, obstacleList, ENEMY_RADIUS)) return false;
   }
+  return true;
+}
+
+function spawnPos(context: SpawnContext, spawnIndex: number): THREE.Vector3 {
+  const edge = ARENA_HALF - 3;
+  const candidates: THREE.Vector3[] = [];
+  const laneCount = 12;
+
+  // Perimeter lanes avoid the map corners and give the opening wave room to
+  // enter the arena instead of appearing inside a building or behind cover.
+  for (let i = 0; i < laneCount; i++) {
+    const lane = -edge + (i / (laneCount - 1)) * edge * 2;
+    candidates.push(
+      new THREE.Vector3(lane, 0.7, -edge),
+      new THREE.Vector3(lane, 0.7, edge),
+      new THREE.Vector3(-edge, 0.7, lane),
+      new THREE.Vector3(edge, 0.7, lane),
+    );
+  }
+
+  const clearCandidates = candidates.filter((candidate) =>
+    isPositionClear(candidate, context.obstacles, ENEMY_RADIUS),
+  );
+  const visibleCandidates = clearCandidates.filter((candidate) =>
+    pathIsClear(candidate, context.playerPosition, context.obstacles),
+  );
+  const pool = visibleCandidates.length > 0 ? visibleCandidates : clearCandidates;
+
+  if (pool.length === 0) {
+    throw new Error("No clear enemy spawn position found around the arena perimeter");
+  }
+
+  const start = Math.floor(Math.random() * pool.length);
+  return pool[(start + spawnIndex) % pool.length].clone();
 }
 
 function randomArenaPos(r: number): THREE.Vector3 {
@@ -67,11 +116,18 @@ function pickType(allowed: EnemyType[]): EnemyType {
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
-function makeEnemy(type: EnemyType, spMult: number, hpMult: number, label: string): Enemy {
+function makeEnemy(
+  type: EnemyType,
+  spMult: number,
+  hpMult: number,
+  label: string,
+  context: SpawnContext,
+  spawnIndex: number,
+): Enemy {
   const def = ENEMY_DEFS[type];
   return {
     id: `${label}_${Date.now()}_${Math.random()}`,
-    position: spawnPos(),
+    position: spawnPos(context, spawnIndex),
     hp: def.hp*hpMult, maxHp: def.hp*hpMult,
     type, speed: def.speed*spMult, baseDamage: def.damage,
     lastShot: 0, lastDamageTime: -99,
@@ -93,7 +149,7 @@ function spawnPracticeDummies(): Enemy[] {
   });
 }
 
-function buildWaveEndless(wave: number): Enemy[] {
+function buildWaveEndless(wave: number, context: SpawnContext): Enemy[] {
   const all: EnemyType[] = ["chaser","ranged","speeder","tank","bomber"];
   const allowed =
     wave===1 ? ["chaser"] as EnemyType[] :
@@ -104,25 +160,33 @@ function buildWaveEndless(wave: number): Enemy[] {
   const spMult = Math.min(2.5, 1+(wave-1)*0.12);
   const hpMult = 1+(wave-1)*0.15;
   return Array.from({length:count}, (_,i) =>
-    makeEnemy(pickType(allowed), spMult, hpMult, `w${wave}_${i}`));
+    makeEnemy(pickType(allowed), spMult, hpMult, `w${wave}_${i}`, context, i));
 }
 
 function buildWaveLevel(
   levelId:number, waveNum:number, allowed:EnemyType[],
   spMult:number, hpMult:number, base:number, perWave:number,
+  context: SpawnContext,
 ): Enemy[] {
   const count = base+(waveNum-1)*perWave;
   return Array.from({length:count}, (_,i) =>
-    makeEnemy(pickType(allowed), spMult, hpMult, `l${levelId}_w${waveNum}_${i}`));
+    makeEnemy(
+      pickType(allowed),
+      spMult,
+      hpMult,
+      `l${levelId}_w${waveNum}_${i}`,
+      context,
+      i,
+    ));
 }
 
-function buildSecretWave(secretWave: number): Enemy[] {
+function buildSecretWave(secretWave: number, context: SpawnContext): Enemy[] {
   if (secretWave >= 4) {
     // Final boss wave — one massive boss enemy
     const def = ENEMY_DEFS.boss;
     return [{
       id:           `boss_${Date.now()}`,
-      position:     new THREE.Vector3(0, 0.7, -20),
+      position:     spawnPos(context, 0),
       hp: def.hp, maxHp: def.hp,
       type:         "boss" as EnemyType,
       speed:        def.speed, baseDamage: def.damage,
@@ -136,7 +200,7 @@ function buildSecretWave(secretWave: number): Enemy[] {
   const spMult = 1.8 + secretWave * 0.3;
   const hpMult = 2.0 + secretWave * 0.5;
   return Array.from({length:count}, (_,i) =>
-    makeEnemy(pickType(all), spMult, hpMult, `secret${secretWave}_${i}`));
+    makeEnemy(pickType(all), spMult, hpMult, `secret${secretWave}_${i}`, context, i));
 }
 
 function obstacleHit(pos: THREE.Vector3, obs: ReturnType<typeof getObstacles>): boolean {
@@ -206,6 +270,8 @@ export default function GameLogic() {
     const skin = CHARACTER_SKINS.find((sk) => sk.id === s.selectedSkin);
 
     obstaclesRef.current     = getObstacles(s.selectedMap);
+    const playerSpawn = getPlayerSpawnPosition(s.selectedMap);
+    s.setPlayerPosition(playerSpawn.clone());
     levelCompleteRef.current    = false;
     checkpointSavedRef.current  = false;
     secretWaveLockedRef.current = false;
@@ -262,6 +328,10 @@ export default function GameLogic() {
 
     const levelDef = s.gameMode === "levels" ? getLevel(s.currentLevel) : null;
     const startCpWave = s.startCheckpointWave;
+    const spawnContext: SpawnContext = {
+      playerPosition: playerSpawn,
+      obstacles: obstaclesRef.current,
+    };
     if (s.gameMode === "practice") {
       s.setWave(1);
       s.setSafeZoneRadius(50);
@@ -279,9 +349,10 @@ export default function GameLogic() {
         levelDef.id, startWave, levelDef.allowedTypes,
         levelDef.speedMult, levelDef.hpMult,
         levelDef.baseEnemyCount, levelDef.enemyCountPerWave,
+        spawnContext,
       ));
     } else {
-      s.setWave(1); s.setEnemies(buildWaveEndless(1));
+      s.setWave(1); s.setEnemies(buildWaveEndless(1, spawnContext));
     }
   }, []);
 
@@ -355,6 +426,7 @@ export default function GameLogic() {
     const gameMode  = s.gameMode;
     const levelDef  = gameMode === "levels" ? getLevel(s.currentLevel) : null;
     const obs       = obstaclesRef.current;
+    const spawnContext: SpawnContext = { playerPosition: playerPos, obstacles: obs };
 
     const enemies   = Array.isArray(s.enemies)        ? s.enemies        : [];
     const bullets   = Array.isArray(s.bullets)        ? s.bullets        : [];
@@ -423,7 +495,7 @@ export default function GameLogic() {
       const pdz = playerPos.z - SECRET_PORTAL_POS.z;
       if (s.secretPortalOpen && Math.sqrt(pdx*pdx+pdz*pdz) < 2.5) {
         s.setInSecretLevel(true); s.setSecretWave(1);
-        s.setEnemies(buildSecretWave(1));
+        s.setEnemies(buildSecretWave(1, spawnContext));
         waveTimerRef.current = 25; playWaveStart();
       }
     }
@@ -444,13 +516,13 @@ export default function GameLogic() {
           s.setInSecretLevel(false); s.setSecretPortalOpen(false);
           // Respawn back into normal wave
           if (gameMode==="levels" && levelDef) {
-            s.setEnemies(buildWaveLevel(levelDef.id,wavesSpawnedRef.current,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave));
-          } else { s.setEnemies(buildWaveEndless(s.wave)); }
+            s.setEnemies(buildWaveLevel(levelDef.id,wavesSpawnedRef.current,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave,spawnContext));
+          } else { s.setEnemies(buildWaveEndless(s.wave, spawnContext)); }
           waveTimerRef.current = WAVE_DURATION;
           setTimeout(() => { secretWaveLockedRef.current=false; }, 400);
         } else {
           const nextSw = sw+1; s.setSecretWave(nextSw);
-          s.setEnemies(buildSecretWave(nextSw));
+          s.setEnemies(buildSecretWave(nextSw, spawnContext));
           waveTimerRef.current = 25;
           nextSw>=4 ? playLevelComplete() : playWaveStart();
           setTimeout(() => { secretWaveLockedRef.current=false; }, 200);
@@ -481,7 +553,7 @@ export default function GameLogic() {
           waveLockedRef.current = true;
           const nw = wavesSpawnedRef.current+1;
           wavesSpawnedRef.current = nw; s.setWave(nw);
-          s.setEnemies([...enemies,...buildWaveLevel(levelDef.id,nw,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave)]);
+          s.setEnemies([...enemies,...buildWaveLevel(levelDef.id,nw,levelDef.allowedTypes,levelDef.speedMult,levelDef.hpMult,levelDef.baseEnemyCount,levelDef.enemyCountPerWave,spawnContext)]);
           waveTimerRef.current = WAVE_DURATION; playWaveStart();
           setTimeout(() => { waveLockedRef.current=false; }, 200); return;
         }
@@ -489,7 +561,7 @@ export default function GameLogic() {
         if ((waveTimerRef.current<=0||waveExhausted) && !waveLockedRef.current) {
           waveLockedRef.current = true;
           const nw=s.wave+1; s.setWave(nw);
-          s.setEnemies([...enemies,...buildWaveEndless(nw)]);
+          s.setEnemies([...enemies,...buildWaveEndless(nw, spawnContext)]);
           waveTimerRef.current=WAVE_DURATION; playWaveStart();
           setTimeout(() => { waveLockedRef.current=false; }, 200); return;
         }
@@ -601,7 +673,9 @@ export default function GameLogic() {
       const pos=e.position.clone(); let lastShot=e.lastShot, lastDamageTime=e.lastDamageTime;
       const dx=playerPos.x-pos.x, dz=playerPos.z-pos.z, dist=Math.sqrt(dx*dx+dz*dz)||0.01;
 
-      if (dist<e.alertRadius) {
+      // Wake the entire opening wave immediately so enemies enter the arena
+      // instead of waiting behind cover for their alert radius to trigger.
+      if (now < 60 || dist < e.alertRadius) {
         const pf=Math.min(0.5,dist/e.speed*0.4);
         const predX=playerPos.x+playerVel.x*pf, predZ=playerPos.z+playerVel.z*pf;
         const pdx=predX-pos.x, pdz=predZ-pos.z, pdist=Math.sqrt(pdx*pdx+pdz*pdz)||dist;
@@ -628,13 +702,14 @@ export default function GameLogic() {
           if(sd<md&&sd>0.001){const push=(md-sd)/sd;mx+=sx*push*0.5;mz+=sz*push*0.5;}
         }
         const ml=Math.sqrt(mx*mx+mz*mz);
-        if(ml>0){pos.x+=(mx/ml)*e.speed*delta;pos.z+=(mz/ml)*e.speed*delta;}
-
-        for (const o of obs) {
-          const hw=o.w/2+0.8,hd=o.d/2+0.8,odx=pos.x-o.x,odz=pos.z-o.z;
-          if(Math.abs(odx)<hw&&Math.abs(odz)<hd) {
-            Math.abs(odx)/hw<Math.abs(odz)/hd?(pos.x=o.x+Math.sign(odx)*hw):(pos.z=o.z+Math.sign(odz)*hd);
-          }
+        if (ml > 0) {
+          const moved = moveWithObstacleCollision(
+            pos,
+            new THREE.Vector3((mx / ml) * e.speed * delta, 0, (mz / ml) * e.speed * delta),
+            obs,
+            ENEMY_RADIUS,
+          );
+          pos.copy(moved);
         }
         pos.x=Math.max(-ARENA_HALF,Math.min(ARENA_HALF,pos.x));
         pos.z=Math.max(-ARENA_HALF,Math.min(ARENA_HALF,pos.z));

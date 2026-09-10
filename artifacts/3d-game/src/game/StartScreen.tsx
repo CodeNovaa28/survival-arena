@@ -83,7 +83,7 @@ export default function StartScreen() {
     <div style={{
       position: "absolute", inset: 0,
       display: "flex", alignItems: "center", justifyContent: "center",
-      background: "radial-gradient(ellipse at 50% 30%, #0a1a2e 0%, #020508 100%)",
+      background: "radial-gradient(ellipse at 50% 28%, #102b49 0%, #071321 48%, #020508 100%)",
       fontFamily: "'Courier New', monospace", overflow: "hidden",
     }}>
       {/* Stars */}
@@ -91,19 +91,20 @@ export default function StartScreen() {
 
       {/* Glow orbs */}
       <div style={{ position: "absolute", top: "20%", left: "15%", width: 300, height: 300,
-        background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)",
+        background: "radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%)",
         borderRadius: "50%", pointerEvents: "none" }} />
       <div style={{ position: "absolute", bottom: "20%", right: "15%", width: 400, height: 400,
-        background: "radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)",
+        background: "radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%)",
         borderRadius: "50%", pointerEvents: "none" }} />
 
-      <div style={{ position: "relative", textAlign: "center", maxWidth: 640, width: "92%", zIndex: 1 }}>
+      <div style={{ position: "relative", textAlign: "center", maxWidth: 680, width: "92%", zIndex: 1 }}>
         {/* Badge */}
         <div style={{
-          display: "inline-block", background: "rgba(239,68,68,0.15)",
-          border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4,
-          padding: "4px 16px", fontSize: 11, color: "#f87171",
+          display: "inline-block", background: "rgba(239,68,68,0.2)",
+          border: "1px solid rgba(248,113,113,0.55)", borderRadius: 5,
+          padding: "5px 18px", fontSize: 11, color: "#fca5a5",
           letterSpacing: 5, marginBottom: 16,
+          boxShadow: "0 0 24px rgba(239,68,68,0.12)",
         }}>
           ◆ SURVIVAL SHOOTER ◆
         </div>
@@ -114,7 +115,7 @@ export default function StartScreen() {
           letterSpacing: 6,
           background: "linear-gradient(180deg, #ffffff 0%, #93c5fd 100%)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          filter: "drop-shadow(0 0 40px rgba(96,165,250,0.4))",
+          filter: "drop-shadow(0 0 44px rgba(96,165,250,0.55))",
         }}>
           ZONE<br />
           <span style={{
@@ -135,10 +136,11 @@ export default function StartScreen() {
             { icon: <TargetIcon size={28} />,label: "LEVELS", val: `${completedLevels.length}/20`,               accent: "#a855f7" },
           ] as { icon: ReactNode; label: string; val: string; accent: string }[]).map((stat) => (
             <div key={stat.label} style={{
-              background: "rgba(255,255,255,0.04)",
-              border: `1px solid ${stat.accent}22`,
+              background: "rgba(255,255,255,0.075)",
+              border: `1px solid ${stat.accent}44`,
               borderRadius: 12, padding: "14px 22px", minWidth: 110,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{stat.icon}</div>
               <div style={{ fontSize: 20, fontWeight: "bold", color: "#fff", lineHeight: 1 }}>{stat.val}</div>
@@ -178,7 +180,7 @@ export default function StartScreen() {
             onClick={() => setPhase("customization")}
             style={{
               background: "rgba(255,255,255,0.04)",
-              color: "#94a3b8", border: "1px solid rgba(255,255,255,0.12)",
+              color: "#b7c7d9", border: "1px solid rgba(255,255,255,0.18)",
               borderRadius: 10, padding: "13px 0", fontSize: 13,
               fontFamily: "'Courier New', monospace", letterSpacing: 2,
               cursor: "pointer", transition: "all 0.2s",
@@ -191,7 +193,7 @@ export default function StartScreen() {
             onClick={() => setPhase("dailyrewards")}
             style={{
               background: chestAvailable ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)",
-              color: chestAvailable ? "#fbbf24" : "#94a3b8",
+              color: chestAvailable ? "#fbbf24" : "#b7c7d9",
               border: `1px solid ${chestAvailable ? "rgba(245,158,11,0.35)" : "rgba(255,255,255,0.12)"}`,
               borderRadius: 10, padding: "13px 0", fontSize: 13,
               fontFamily: "'Courier New', monospace", letterSpacing: 2,
@@ -230,7 +232,7 @@ export default function StartScreen() {
             onClick={() => setPhase("settings")}
             style={{
               background: "rgba(255,255,255,0.04)",
-              color: "#94a3b8", border: "1px solid rgba(255,255,255,0.12)",
+              color: "#b7c7d9", border: "1px solid rgba(255,255,255,0.18)",
               borderRadius: 10, padding: "13px 0", fontSize: 13,
               fontFamily: "'Courier New', monospace", letterSpacing: 2,
               cursor: "pointer", transition: "all 0.2s",
@@ -271,11 +273,11 @@ export default function StartScreen() {
             ["ESC", "Pause"],
           ].map(([k, v]) => (
             <div key={k} style={{
-              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 6, padding: "8px 6px", textAlign: "center",
             }}>
               <div style={{ color: "#60a5fa", fontWeight: "bold", marginBottom: 3 }}>{k}</div>
-              <div style={{ color: "#555" }}>{v}</div>
+              <div style={{ color: "#8fa3bb" }}>{v}</div>
             </div>
           ))}
         </div>
@@ -291,7 +293,7 @@ export default function StartScreen() {
           ] as const).map(([c, n, coinLabel]) => (
             <div key={n} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#555" }}>
               <div style={{ width: 8, height: 8, background: c, borderRadius: 2 }} />
-              <span style={{ color: "#666" }}>{n}</span>
+              <span style={{ color: "#8fa3bb" }}>{n}</span>
               <span style={{ color: "#f59e0b", fontSize: 10 }}>{coinLabel}</span>
             </div>
           ))}
@@ -313,6 +315,7 @@ function ModeCard({ icon, title, desc, color, onClick }: {
         borderRadius: 12, padding: "18px 12px", cursor: "pointer",
         transition: "all 0.2s", textAlign: "left",
         fontFamily: "'Courier New', monospace",
+         boxShadow: `inset 0 1px 0 ${color}22`,
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.background = `linear-gradient(135deg, ${color}44 0%, ${color}22 100%)`;
@@ -329,7 +332,7 @@ function ModeCard({ icon, title, desc, color, onClick }: {
       <div style={{ fontSize: 14, fontWeight: "bold", color: "#fff", letterSpacing: 2, marginBottom: 4 }}>
         {title}
       </div>
-      <div style={{ fontSize: 10, color: "#666", lineHeight: 1.5 }}>{desc}</div>
+      <div style={{ fontSize: 10, color: "#9fb3cc", lineHeight: 1.5 }}>{desc}</div>
     </button>
   );
 }

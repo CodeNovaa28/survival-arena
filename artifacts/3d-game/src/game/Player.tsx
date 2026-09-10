@@ -3,14 +3,19 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useKeyboardControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useGameStore } from "./store";
-import { ARENA_HALF, getObstacles } from "./Arena";
+import {
+  ARENA_HALF,
+  getObstacles,
+  getPlayerSpawnPosition,
+  moveWithObstacleCollision,
+  PLAYER_RADIUS,
+} from "./Arena";
 import { CHARACTER_SKINS } from "./gameSkins";
 import { getGun } from "./gameGuns";
 import { playShoot, playShootShotgun, playShootSniper, playShootPlasma } from "./sounds";
 
 enum Controls { forward="forward", back="back", left="left", right="right" }
 
-const PLAYER_RADIUS = 0.4;
 const BASE_SPEED    = 7;
 
 const _raycaster    = new THREE.Raycaster();
@@ -20,7 +25,6 @@ const _smoothVel    = new THREE.Vector3();
 
 export default function Player() {
   const meshRef    = useRef<THREE.Group>(null);
-  const posRef     = useRef(new THREE.Vector3(0,0,0));
   const aimRef     = useRef(new THREE.Vector3(0,0,-1));
   const cooldownRef= useRef(0);
   const shieldRef  = useRef(0);
@@ -29,8 +33,14 @@ export default function Player() {
   const { camera, gl }  = useThree();
 
   // Get skin + gun at mount (read once — won't change during match)
+  const initialMapId = useGameStore.getState().selectedMap;
+  const posRef     = useRef(getPlayerSpawnPosition(initialMapId));
   const skinId = useGameStore.getState().selectedSkin;
   const skin   = CHARACTER_SKINS.find((s) => s.id === skinId) ?? CHARACTER_SKINS[0];
+
+  useEffect(() => {
+    useGameStore.getState().setPlayerPosition(posRef.current.clone());
+  }, []);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -135,22 +145,23 @@ export default function Player() {
 
     if (vel.lengthSq() > 0) vel.normalize().multiplyScalar(speed * delta);
 
-    _smoothVel.lerp(vel, 0.35);
-    store.setPlayerVelocity(_smoothVel.clone().divideScalar(delta || 0.016));
+    const previousPosition = posRef.current.clone();
+    const nextPosition = moveWithObstacleCollision(
+      posRef.current,
+      vel,
+      obs,
+      PLAYER_RADIUS,
+    );
+    nextPosition.x = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, nextPosition.x));
+    nextPosition.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, nextPosition.z));
+    posRef.current.copy(nextPosition);
 
-    posRef.current.add(vel);
-    posRef.current.x = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, posRef.current.x));
-    posRef.current.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, posRef.current.z));
-
-    for (const o of obs) {
-      const hw = o.w/2 + PLAYER_RADIUS, hd = o.d/2 + PLAYER_RADIUS;
-      const dx = posRef.current.x - o.x, dz = posRef.current.z - o.z;
-      if (Math.abs(dx)<hw && Math.abs(dz)<hd) {
-        Math.abs(dx)/hw < Math.abs(dz)/hd
-          ? (posRef.current.x = o.x + Math.sign(dx)*hw)
-          : (posRef.current.z = o.z + Math.sign(dz)*hd);
-      }
-    }
+    const actualVelocity = posRef.current
+      .clone()
+      .sub(previousPosition)
+      .divideScalar(delta || 0.016);
+    _smoothVel.lerp(actualVelocity, 0.35);
+    store.setPlayerVelocity(_smoothVel.clone());
 
     mesh.position.set(posRef.current.x, 0, posRef.current.z);
     store.setPlayerPosition(posRef.current.clone());

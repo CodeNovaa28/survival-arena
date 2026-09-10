@@ -6,12 +6,111 @@ import { useGameStore } from "./store";
 
 export const ARENA_SIZE = 90;
 export const ARENA_HALF = ARENA_SIZE / 2 - 1;
+export const PLAYER_RADIUS = 0.45;
+export const ENEMY_RADIUS = 0.8;
 
 export function getObstacles(mapId: string) {
   return getMap(mapId).obstacles;
 }
 
 export const obstacles = getMap("urban").obstacles;
+
+function overlapsObstacle(
+  x: number,
+  z: number,
+  obstacle: ReturnType<typeof getObstacles>[number],
+  radius: number,
+) {
+  return (
+    Math.abs(x - obstacle.x) < obstacle.w / 2 + radius &&
+    Math.abs(z - obstacle.z) < obstacle.d / 2 + radius
+  );
+}
+
+export function isPositionClear(
+  position: THREE.Vector3,
+  obstacleList: ReturnType<typeof getObstacles>,
+  radius: number,
+) {
+  return !obstacleList.some((obstacle) =>
+    overlapsObstacle(position.x, position.z, obstacle, radius),
+  );
+}
+
+export function moveWithObstacleCollision(
+  position: THREE.Vector3,
+  delta: THREE.Vector3,
+  obstacleList: ReturnType<typeof getObstacles>,
+  radius: number,
+) {
+  const next = position.clone();
+
+  // Resolve each axis independently so actors slide along cover instead of
+  // getting wedged when moving diagonally into a corner.
+  if (delta.x !== 0) {
+    next.x += delta.x;
+    for (const obstacle of obstacleList) {
+      if (
+        Math.abs(next.x - obstacle.x) < obstacle.w / 2 + radius &&
+        Math.abs(next.z - obstacle.z) < obstacle.d / 2 + radius
+      ) {
+        next.x = delta.x > 0
+          ? obstacle.x - obstacle.w / 2 - radius
+          : obstacle.x + obstacle.w / 2 + radius;
+      }
+    }
+  }
+
+  if (delta.z !== 0) {
+    next.z += delta.z;
+    for (const obstacle of obstacleList) {
+      if (
+        Math.abs(next.x - obstacle.x) < obstacle.w / 2 + radius &&
+        Math.abs(next.z - obstacle.z) < obstacle.d / 2 + radius
+      ) {
+        next.z = delta.z > 0
+          ? obstacle.z - obstacle.d / 2 - radius
+          : obstacle.z + obstacle.d / 2 + radius;
+      }
+    }
+  }
+
+  return next;
+}
+
+export function getPlayerSpawnPosition(mapId: string) {
+  const obstacleList = getObstacles(mapId);
+  const candidates: THREE.Vector3[] = [];
+
+  // Try the center first, then increasingly wide rings. This keeps the
+  // opening readable while still working on maps whose center is occupied.
+  for (const radius of [0, 4.5, 7, 10, 14]) {
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      candidates.push(new THREE.Vector3(
+        Math.cos(angle) * radius,
+        0,
+        Math.sin(angle) * radius,
+      ));
+    }
+  }
+
+  // The maps currently leave open space, but keep a deterministic grid
+  // fallback so a future map cannot accidentally spawn the player in cover.
+  for (let x = -30; x <= 30; x += 3) {
+    for (let z = -30; z <= 30; z += 3) {
+      candidates.push(new THREE.Vector3(x, 0, z));
+    }
+  }
+
+  const clear = candidates.find((candidate) =>
+    isPositionClear(candidate, obstacleList, PLAYER_RADIUS),
+  );
+  if (!clear) {
+    throw new Error(`No clear player spawn position found for map "${mapId}"`);
+  }
+  return clear.clone();
+}
 
 export default function Arena({ mapId = "urban" }: { mapId?: string }) {
   const map  = useMemo(() => getMap(mapId), [mapId]);
