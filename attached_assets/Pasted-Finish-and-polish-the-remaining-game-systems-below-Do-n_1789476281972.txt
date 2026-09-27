@@ -1,0 +1,131 @@
+Finish and polish the remaining game systems below. **Do not remove or break existing functionality. Work systematically, test each change, and only commit/push after everything is working.**
+
+## 1. Finish the minigames
+
+* Finish integrating all newly added minigames.
+* Fix any TypeScript/build/runtime errors.
+* Make sure every minigame is actually accessible from the Minigames menu and works correctly.
+* Preserve the existing Target Blast and Coin Rush minigames.
+* Test the minigames before considering this section complete.
+
+## 2. Fix Practice Mode
+
+Practice Mode should be fundamentally different from Endless Mode:
+
+* Enemies/dummies should be available for practice.
+* **The player must never lose HP in Practice Mode**, even when attacked or shot.
+* Practice Mode should provide power-ups so the player can experiment with them.
+* Practice Mode should not behave like Endless Mode.
+* Make sure the mode clearly feels like a safe testing/practice environment.
+
+## 3. Make the maps meaningfully different
+
+The current maps feel too similar.
+
+Each map should have its own **distinct visual identity, layout, obstacles, and gameplay feel** so that unlocking a new map feels worthwhile.
+
+Do not simply recolor the same arena. Make the maps structurally and visually different while keeping gameplay balanced and functional.
+
+## 4. Fix enemy spawn points
+
+Enemy spawning still has problems:
+
+* Enemies should spawn at valid locations.
+* They must not spawn inside obstacles, behind inaccessible geometry, or in places where they immediately become stuck.
+* Spawn locations should provide a reasonable path toward the playable area/player.
+* Check this across **all maps**, not just one.
+
+## 5. Fix the Spin Wheel
+
+The wheel currently lands on the cracks/boundaries between sectors instead of clearly landing inside a sector.
+
+Fix the wheel so that:
+
+* The final result is determined by the actual sector selected.
+* The visual pointer/result matches the calculated sector.
+* Rewards are correctly awarded according to the sector.
+* The player receives exactly the intended number of coins/gems/reward.
+* There are no cases where the wheel visually lands on one reward but awards another.
+
+### Wheel pricing and probabilities
+
+Each additional wheel spin purchased should cost more than the previous one.
+
+Also rebalance the probabilities:
+
+* Lower-value reward sectors should have higher probabilities.
+* Higher-value reward sectors should have lower probabilities.
+* Make sure the probability system actually matches the displayed wheel/reward system.
+* Prevent repeated spinning from becoming an easy way to generate excessive amounts of currency.
+
+Keep the economy balanced rather than making the wheel useless.
+
+## 6. Fix player death animation
+
+The current death explosion is incorrect because the player remains visible/moving for several seconds afterward.
+
+When the death explosion occurs:
+
+1. Immediately stop player movement.
+2. Remove/hide the player character immediately.
+3. Do not allow the player to continue moving or interacting.
+4. Then transition cleanly to the Game Over screen.
+
+The player should **not be visible after the explosion occurs**.
+
+## 7. Add mouse movement controls
+
+Add an optional mouse-control scheme alongside the existing controls.
+
+Requested behavior:
+
+* **Mouse Button 1 = move forward / W**
+* **Mouse Button 2 = move backward / S**
+* Mouse movement should control the aiming cursor/crosshair.
+* The cursor/aim direction should respond smoothly and predictably to mouse movement.
+* Existing keyboard controls must continue working.
+
+Do not make mouse controls mandatory. They should be an additional control option.
+
+## 8. Improve aiming
+
+The current aiming feels difficult and imprecise.
+
+Improve the aiming system so that:
+
+* The aim direction tracks the cursor more reliably.
+* The relationship between player position, cursor position, and aim direction feels natural.
+* Aiming is responsive without feeling excessively sensitive.
+* The existing gameplay remains balanced.
+
+Test the aiming in actual gameplay rather than only checking that the code runs.
+
+## 9. README
+
+After all changes are complete, update the README in the Git repository to accurately document:
+
+* Newly completed minigames.
+* Practice Mode behavior.
+* Updated/distinct maps.
+* Spin Wheel/economy changes.
+* New mouse controls.
+* Any other significant gameplay or system changes made in this task.
+
+Do not claim a feature is complete if it is not actually working.
+
+## 10. GitHub
+
+Only after the entire task has been completed and tested:
+
+* Check `git status`.
+* Make sure all intended changes are committed.
+* Push the commits to the correct GitHub repository:
+  `origin` → `https://github.com/CodeNovaa28/survival-arena.git`
+* Verify that the push succeeded.
+* Do not leave unfinished or broken work represented as a completed feature.
+
+### Important
+
+Work through the sections systematically. **Do not spend the entire task adding new features while leaving existing bugs unresolved.** Prioritize fixing and completing the listed requirements first.
+
+Before finishing, run the appropriate build/typecheck checks and fix any errors introduced by these changes.
