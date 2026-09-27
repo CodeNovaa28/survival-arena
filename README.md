@@ -12,7 +12,7 @@
 **A fast-paced 3D top-down survival arena shooter built with React Three Fiber.**
 Survive waves of enemies, unlock powerful weapons, and dominate the arena across six unique maps.
 
-[▶ Play Now](#-installation) · [📸 Screenshots](#-screenshots) · [📐 Game Math](#-game-mathematics) · [🗺️ Roadmap](#-future-plans)
+[▶ Play Now](https://survival-arena-7u6a58qk6-novaa6.vercel.app/) · [📸 Screenshots](#-screenshots) · [📐 Game Math](#-game-mathematics) · [🗺️ Roadmap](#-future-plans)
 
 </div>
 
@@ -21,6 +21,8 @@ Survive waves of enemies, unlock powerful weapons, and dominate the arena across
 ## 📸 Overview
 
 Survival Arena drops you into a relentless survival arena where each wave brings deadlier enemies. Master a growing arsenal of ranged and melee weapons, recruit AI companions, and fight through story-driven levels or endlessly grind for supremacy. Earn coins, gems, and rewards every day — then spend them on unlockable skins, maps, and gear.
+
+**Who is this for?** Built as a personal project by a high-school student to explore real-time 3D gameplay, economy design, and progression systems in the browser.
 
 ---
 
@@ -46,22 +48,23 @@ Survival Arena drops you into a relentless survival arena where each wave brings
 - 🔫 **Diverse arsenal** — Pistol, Burst Pistol, Assault Rifle, SMG, Shotgun, Sniper Rifle, Plasma Cannon, Minigun, Trident, and more
 - ⚡ **Power-ups** — speed boosts, shields, rapid fire, and health pickups mid-wave
 - 🤖 **AI Companions** — recruit allies that fight alongside you
+- 🧪 **Seven minigames** — Target Blast, Coin Rush, Memory Matrix, Lock Breaker, Reaction Core, Code Breaker, and Signal Sorter
 
 ### 🗺️ Game Modes
 - 📖 **Story Mode** — progress through handcrafted levels with narrative cutscenes
 - ♾️ **Endless Mode** — survive as long as you can with increasing difficulty
-- 🎯 **Practice Mode** — sharpen your aim and movement without pressure
+- 🎯 **Practice Mode** — sharpen aim and movement with respawning dummies, active power-ups, no damage, no timer, and no zone
 
 ### 🌍 Maps
 Six fully unique arenas to master:
 | Map | Theme |
 |-----|-------|
-| 🏙️ Urban Arena | City streets and cover |
-| 🧊 Ice Fortress | Slippery frozen stronghold |
-| 🏜️ Desert Ruins | Ancient ruined landscape |
-| 🌋 Volcano Crater | Molten environment |
-| 🌑 Shadow Realm | Dark and eerie dimension |
-| 🌆 Neon City | Cyberpunk cityscape |
+| 🏙️ Urban Arena | City streets, road markings, lamps, and industrial districts |
+| 🧊 Ice Fortress | Ice pillars, frozen bays, and crystalline perimeter cover |
+| 🏜️ Desert Ruins | Sandstone pillars, temple rings, and open sightlines |
+| 🌋 Volcano Crater | Lava pools, volcanic light, and high-risk exposed lanes |
+| 🌑 Shadow Realm | Void spires, dark chasms, and low-light purple landmarks |
+| 🌆 Neon City | Tight cyberpunk corridors and a glowing grid floor |
 
 ### 🎨 Customization
 - 🧑 **Character Skins** — Soldier, Shadow, Neon Striker, Crimson Guard, Arctic Wolf, Toxic, Gold Commander, Phantom, Inferno, Phoenix, War Commander, Cyber Runner, Ghost Squad, and more
@@ -84,6 +87,17 @@ You spawn in a closed arena and face endless waves of enemies. Between waves you
 
 Coins and gems drop from enemies and chests on the map. Spend them in the **Customization Hub** to unlock new skins, the **map store** for new arenas, or blow them on the **Spin Wheel** for a chance at rare rewards.
 
+Practice Mode is intentionally separate from survival progression: dummies respawn, power-ups appear regularly, the safe zone does not shrink, normal waves and secret paths are disabled, and incoming damage is ignored.
+
+The seven minigames use the same daily reward protection as the rest of the economy. Each game tracks up to 150 coins per day, with a gem bonus for a strong run.
+
+### Completed system polish
+
+- **Spawn validation** keeps players and enemies clear of obstacle geometry across all maps, with enemy perimeter positions selected for a direct approach whenever possible.
+- **Obstacle movement** resolves player and enemy movement per axis, allowing actors to slide around cover instead of clipping or getting wedged.
+- **Spin Wheel** rewards are selected from the displayed sectors, land under the pointer's sector center, weight lower-value outcomes more heavily, and charge increasingly expensive paid spins.
+- **Death state** freezes movement and hides the player immediately when the death burst begins, then transitions to Game Over.
+
 ---
 
 ## 🕹️ Controls
@@ -93,11 +107,13 @@ Coins and gems drop from enemies and chests on the map. Spend them in the **Cust
 | Move | `W` `A` `S` `D` |
 | Aim | Mouse cursor |
 | Shoot | Left Mouse Button |
+| Optional mouse movement | Hold Mouse 1 to move forward, Mouse 2 to move backward |
 | Melee attack | `F` |
 | Pause | `Escape` |
 | Use ability | `Q` |
 
 > 🎯 Aim is always relative to your mouse position — click toward an enemy to fire.
+> Mouse movement can be enabled or disabled in Settings. Aim follows the ground-plane cursor smoothly while keyboard movement remains available.
 
 ---
 
@@ -149,7 +165,7 @@ pnpm --filter @workspace/3d-game run build
 
 ## 💾 Persistence on Vercel
 
-Zone Breach is a client-side game, so it does not require a database to keep a player's browser progression. The game stores the player profile in JavaScript's `localStorage`, which works on Vercel and other static hosts:
+Survival Arena is a client-side game, so it does not require a database to keep a player's browser progression. The game stores the player profile in JavaScript's `localStorage`, which works on Vercel and other static hosts:
 
 - 🪙 Coins, gems, high score, and total earnings
 - 🔓 Unlocked levels, maps, weapons, melee gear, skins, and permanent perks
@@ -285,7 +301,7 @@ The table below estimates raw coin velocity from the current enemy weights and r
 
 ## 🧪 Devlog: how item costs were calculated
 
-Zone Breach prices are built around **time-to-afford**, not arbitrary rarity labels. We first estimate a player's active earning velocity, then choose a target number of successful waves for each item tier:
+Survival Arena prices are built around **time-to-afford**, not arbitrary rarity labels. We first estimate a player's active earning velocity, then choose a target number of successful waves for each item tier:
 
 ```text
 TargetCost(item) ≈ EarningVelocity × TargetMinutesToAfford
@@ -301,6 +317,24 @@ The practical cost pass uses these rules:
 6. **Rounded storefront values** — costs are rounded to readable numbers (`80`, `120`, `200`, `420`, `800`, `950`) so players can remember them and the economy is easy to rebalance.
 
 This produces a controlled curve: the player's earning velocity grows with danger, while unlock costs grow by tier and choice pressure. When tuning a value, we compare its estimated purchase time against the chart above and then playtest the item's actual power, not just its price.
+
+---
+
+## ⚠️ Known limitations
+
+- The browser bundle is still large, so code-splitting and rendering optimization would help lower-end devices.
+- Enemy pathing uses local steering and obstacle sliding rather than a full navigation mesh; some late-map cover arrangements may still need balance tuning.
+- Mouse aiming and optional mouse movement are responsive, but keyboard movement remains the most predictable control scheme for precision play.
+
+## 💬 Feedback and contribution
+
+Bug reports and balance feedback are welcome. Open an issue with:
+
+- Device and browser
+- What you were doing
+- What you expected versus what happened
+
+This is a personal project, so focused reproduction steps are especially helpful.
 
 ---
 

@@ -26,8 +26,10 @@ const _smoothVel    = new THREE.Vector3();
 export default function Player() {
   const meshRef    = useRef<THREE.Group>(null);
   const aimRef     = useRef(new THREE.Vector3(0,0,-1));
+  const aimTargetRef = useRef(new THREE.Vector3(0,0,-1));
   const cooldownRef= useRef(0);
   const shieldRef  = useRef(0);
+  const mouseButtonsRef = useRef({ forward: false, back: false });
 
   const [, getControls] = useKeyboardControls<Controls>();
   const { camera, gl }  = useThree();
@@ -52,7 +54,7 @@ export default function Player() {
       _raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
       if (_raycaster.ray.intersectPlane(_groundPlane, _groundTarget)) {
         const d = _groundTarget.clone().sub(posRef.current).setY(0);
-        if (d.lengthSq() > 0.01) aimRef.current.copy(d.normalize());
+        if (d.lengthSq() > 0.01) aimTargetRef.current.copy(d.normalize());
       }
     };
 
@@ -62,6 +64,7 @@ export default function Player() {
       if (cooldownRef.current > 0) return;
 
       updateAim(cx, cy);
+      aimRef.current.copy(aimTargetRef.current);
 
       const gun     = getGun(store.tempWeapon ?? store.selectedGun);
       const hasRapid= store.activePowerUps.some((p) => p.type === "rapidfire");
@@ -111,21 +114,49 @@ export default function Player() {
 
     const onMove      = (e: MouseEvent)   => updateAim(e.clientX, e.clientY);
     const onClick     = (e: MouseEvent)   => tryShoot(e.clientX, e.clientY);
-    const onPtrDown   = (e: PointerEvent) => { if (e.button === 0) tryShoot(e.clientX, e.clientY); };
+    const mouseMoveEnabled = localStorage.getItem("zb_mouse_move") !== "0";
+    const onPtrDown   = (e: PointerEvent) => {
+      if (e.button === 0) {
+        tryShoot(e.clientX, e.clientY);
+        if (mouseMoveEnabled) mouseButtonsRef.current.forward = true;
+      } else if (e.button === 2 && mouseMoveEnabled) {
+        mouseButtonsRef.current.back = true;
+        e.preventDefault();
+      }
+    };
+    const onPtrUp = (e: PointerEvent) => {
+      if (e.button === 0) mouseButtonsRef.current.forward = false;
+      if (e.button === 2) mouseButtonsRef.current.back = false;
+    };
+    const onContextMenu = (e: MouseEvent) => {
+      if (mouseMoveEnabled) e.preventDefault();
+    };
+    const clearMouseButtons = () => {
+      mouseButtonsRef.current.forward = false;
+      mouseButtonsRef.current.back = false;
+    };
 
     canvas.addEventListener("mousemove",  onMove);
     canvas.addEventListener("click",      onClick);
     canvas.addEventListener("pointerdown",onPtrDown);
+    canvas.addEventListener("pointerup", onPtrUp);
+    canvas.addEventListener("pointercancel", onPtrUp);
+    canvas.addEventListener("contextmenu", onContextMenu);
+    window.addEventListener("blur", clearMouseButtons);
     return () => {
       canvas.removeEventListener("mousemove",  onMove);
       canvas.removeEventListener("click",      onClick);
       canvas.removeEventListener("pointerdown",onPtrDown);
+      canvas.removeEventListener("pointerup", onPtrUp);
+      canvas.removeEventListener("pointercancel", onPtrUp);
+      canvas.removeEventListener("contextmenu", onContextMenu);
+      window.removeEventListener("blur", clearMouseButtons);
     };
   }, [camera, gl]);
 
   useFrame((_, delta) => {
     const store = useGameStore.getState();
-    if (store.phase !== "playing" || store.paused) return;
+    if (store.phase !== "playing" || store.paused || store.playerDead) return;
     const mesh = meshRef.current;
     if (!mesh) return;
 
@@ -138,8 +169,8 @@ export default function Player() {
 
     const ctrl = getControls();
     const vel  = new THREE.Vector3(0,0,0);
-    if (ctrl.forward) vel.z -= 1;
-    if (ctrl.back)    vel.z += 1;
+    if (ctrl.forward || mouseButtonsRef.current.forward) vel.z -= 1;
+    if (ctrl.back || mouseButtonsRef.current.back)       vel.z += 1;
     if (ctrl.left)    vel.x -= 1;
     if (ctrl.right)   vel.x += 1;
 
@@ -155,6 +186,7 @@ export default function Player() {
     nextPosition.x = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, nextPosition.x));
     nextPosition.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, nextPosition.z));
     posRef.current.copy(nextPosition);
+    aimRef.current.lerp(aimTargetRef.current, Math.min(1, delta * 18)).normalize();
 
     const actualVelocity = posRef.current
       .clone()
@@ -169,9 +201,10 @@ export default function Player() {
   });
 
   const hasShield = useGameStore((s) => s.activePowerUps.some((p) => p.type === "shield"));
+  const playerDead = useGameStore((s) => s.playerDead);
 
   return (
-    <group ref={meshRef}>
+    <group ref={meshRef} visible={!playerDead}>
       {/* Shield aura */}
       <ShieldAura active={hasShield} pulseRef={shieldRef} />
 

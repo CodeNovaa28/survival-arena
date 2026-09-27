@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useGameStore } from "./store";
 import { setMusicVolume } from "./music";
 import { setSfxVolume } from "./sounds";
@@ -10,6 +11,9 @@ export default function SettingsScreen() {
   const setSVol       = useGameStore((s) => s.setSfxVolume);
   const setStory      = useGameStore((s) => s.setStoryEnabled);
   const setPhase      = useGameStore((s) => s.setPhase);
+  const [mouseMoveEnabled, setMouseMoveEnabled] = useState(() => {
+    try { return localStorage.getItem("zb_mouse_move") !== "0"; } catch { return true; }
+  });
 
   const handleMusic = (v: number) => { setMVol(v); setMusicVolume(v); };
   const handleSfx   = (v: number) => { setSVol(v); setSfxVolume(v); };
@@ -80,11 +84,32 @@ export default function SettingsScreen() {
         {/* Controls */}
         <Section label="🎮 CONTROLS">
           <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 16, background: "rgba(59,130,246,0.08)",
+            border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12,
+            padding: "14px 18px", marginBottom: 10,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#fff", fontWeight: "bold", marginBottom: 4 }}>Mouse movement</div>
+              <div style={{ fontSize: 10, color: "#8fa3bb", lineHeight: 1.5 }}>
+                Hold Mouse 1 to move forward and Mouse 2 to move backward. Mouse 1 still shoots.
+              </div>
+            </div>
+            <ToggleSwitch
+              value={mouseMoveEnabled}
+              onChange={(enabled) => {
+                setMouseMoveEnabled(enabled);
+                try { localStorage.setItem("zb_mouse_move", enabled ? "1" : "0"); } catch {}
+              }}
+            />
+          </div>
+          <div style={{
             display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
           }}>
             {[
               ["WASD / ↑↓←→", "Move"],
-              ["Mouse Click", "Shoot"],
+              ["M1 hold", "Forward + shoot"],
+              ["M2 hold", "Move backward"],
               ["Auto", "Melee (near enemies)"],
               ["F", "Force melee swing"],
               ["Q", "Drone Strike (Lv 5+)"],

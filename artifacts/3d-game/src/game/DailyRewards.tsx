@@ -3,14 +3,16 @@ import { useGameStore, MILESTONES } from "./store";
 
 // ─── Spin Wheel ────────────────────────────────────────────────────────────────
 const PRIZES = [
-  { label: "50",  value: 50,  color: "#f59e0b", textColor: "#fff" },
-  { label: "100", value: 100, color: "#3b82f6", textColor: "#fff" },
-  { label: "MISS",value: 0,   color: "#1e293b", textColor: "#475569" },
-  { label: "200", value: 200, color: "#22c55e", textColor: "#fff" },
-  { label: "50",  value: 50,  color: "#f59e0b", textColor: "#fff" },
-  { label: "500", value: 500, color: "#ef4444", textColor: "#fff" },
-  { label: "100", value: 100, color: "#3b82f6", textColor: "#fff" },
-  { label: "MISS",value: 0,   color: "#1e293b", textColor: "#475569" },
+  { label: "MISS", value: 0,   color: "#1e293b", textColor: "#64748b" },
+  { label: "25",   value: 25,  color: "#475569", textColor: "#fff" },
+  { label: "50",   value: 50,  color: "#f59e0b", textColor: "#fff" },
+  { label: "25",   value: 25,  color: "#475569", textColor: "#fff" },
+  { label: "100",  value: 100, color: "#3b82f6", textColor: "#fff" },
+  { label: "50",   value: 50,  color: "#f59e0b", textColor: "#fff" },
+  { label: "200",  value: 200, color: "#22c55e", textColor: "#fff" },
+  { label: "25",   value: 25,  color: "#475569", textColor: "#fff" },
+  { label: "100",  value: 100, color: "#3b82f6", textColor: "#fff" },
+  { label: "500",  value: 500, color: "#ef4444", textColor: "#fff" },
 ];
 const SEG_ANGLE = (Math.PI * 2) / PRIZES.length;
 
@@ -53,13 +55,22 @@ function drawWheel(canvas: HTMLCanvasElement, rotation: number) {
   ctx.stroke();
 }
 
-function SpinWheel({ canSpinFree, onSpin }: { canSpinFree: boolean; onSpin: (coins: number) => void }) {
+function getExtraSpinKey() {
+  return `zb_extra_spin_${getTodayKey()}`;
+}
+
+function SpinWheel({ canSpinFree, onSpin }: { canSpinFree: boolean; onSpin: (coins: number, free: boolean) => void }) {
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const rotRef     = useRef(0);
   const rafRef     = useRef(0);
   const [spinning, setSpinning] = useState(false);
   const [result,   setResult]   = useState<{ label: string; value: number } | null>(null);
   const coins      = useGameStore((s) => s.coins);
+  const addCoins   = useGameStore((s) => s.addCoins);
+  const [paidSpins, setPaidSpins] = useState(() => {
+    try { return Number(localStorage.getItem(getExtraSpinKey()) ?? 0); } catch { return 0; }
+  });
+  const extraCost = 25 + paidSpins * 25;
 
   const drawFrame = useCallback(() => {
     if (canvasRef.current) drawWheel(canvasRef.current, rotRef.current);
@@ -72,10 +83,19 @@ function SpinWheel({ canSpinFree, onSpin }: { canSpinFree: boolean; onSpin: (coi
     if (cost > 0 && coins < cost) return;
     setResult(null);
     setSpinning(true);
+    if (cost > 0) {
+      addCoins(-cost);
+      const nextPaidSpins = paidSpins + 1;
+      setPaidSpins(nextPaidSpins);
+      try { localStorage.setItem(getExtraSpinKey(), String(nextPaidSpins)); } catch {}
+    }
 
     const landIdx = Math.floor(Math.random() * PRIZES.length);
-    const targetAngle = Math.PI * 2 * 5 + landIdx * SEG_ANGLE;
     const startRot    = rotRef.current;
+    const fullTurn    = Math.PI * 2;
+    const current     = ((startRot % fullTurn) + fullTurn) % fullTurn;
+    const target      = ((-(landIdx + 0.5) * SEG_ANGLE) % fullTurn + fullTurn) % fullTurn;
+    const targetAngle = fullTurn * 5 + ((target - current + fullTurn) % fullTurn);
     const endRot      = startRot + targetAngle;
     const duration    = 3200;
     const start       = performance.now();
@@ -91,7 +111,7 @@ function SpinWheel({ canSpinFree, onSpin }: { canSpinFree: boolean; onSpin: (coi
       } else {
         setSpinning(false);
         setResult(PRIZES[landIdx]);
-        onSpin(PRIZES[landIdx].value);
+        onSpin(PRIZES[landIdx].value, cost === 0);
       }
     };
     rafRef.current = requestAnimationFrame(animate);
@@ -146,16 +166,16 @@ function SpinWheel({ canSpinFree, onSpin }: { canSpinFree: boolean; onSpin: (coi
         >{canSpinFree ? "🎰 FREE SPIN" : "✓ USED TODAY"}</button>
 
         <button
-          onClick={() => doSpin(25)}
-          disabled={spinning || coins < 25}
+          onClick={() => doSpin(extraCost)}
+          disabled={spinning || coins < extraCost}
           style={{
             padding: "10px 22px", borderRadius: 8, fontSize: 12, fontWeight: "bold",
-            background: !spinning && coins >= 25 ? "#f59e0b" : "#1e293b",
-            color: !spinning && coins >= 25 ? "#fff" : "#475569",
-            border: "none", cursor: !spinning && coins >= 25 ? "pointer" : "not-allowed",
+            background: !spinning && coins >= extraCost ? "#f59e0b" : "#1e293b",
+            color: !spinning && coins >= extraCost ? "#fff" : "#475569",
+            border: "none", cursor: !spinning && coins >= extraCost ? "pointer" : "not-allowed",
             letterSpacing: 1, fontFamily: "inherit", transition: "all .15s",
           }}
-        >🪙 25 EXTRA SPIN</button>
+         >🪙 {extraCost} EXTRA SPIN</button>
       </div>
     </div>
   );
@@ -176,7 +196,8 @@ export default function DailyRewards() {
   const totalCoins    = useGameStore((s) => s.totalCoinsEarned);
   const permanentPerks= useGameStore((s) => s.permanentPerks);
   const claimChest    = useGameStore((s) => s.claimDailyChest);
-  const claimSpin     = useGameStore((s) => s.claimDailySpin);
+   const claimSpin     = useGameStore((s) => s.claimDailySpin);
+   const addCoins      = useGameStore((s) => s.addCoins);
   const claimQuest    = useGameStore((s) => s.claimQuestReward);
   const refresh       = useGameStore((s) => s.refreshDailyQuestsIfNeeded);
   const addPerk       = useGameStore((s) => s.addPermanentPerk);
@@ -197,8 +218,9 @@ export default function DailyRewards() {
     setChestResult(result);
   };
 
-  const handleSpin = (prize: number) => {
-    claimSpin(prize);
+  const handleSpin = (prize: number, free: boolean) => {
+    if (free) claimSpin(prize);
+    else addCoins(prize);
     setSpinResult(prize);
   };
 
@@ -372,7 +394,7 @@ export default function DailyRewards() {
             }}>
               <div style={{ fontSize: 11, color: "#22d3ee", letterSpacing: 3, marginBottom: 6, alignSelf: "flex-start" }}>🎰 SPIN WHEEL</div>
               <div style={{ fontSize: 10, color: "#475569", marginBottom: 16, alignSelf: "flex-start", lineHeight: 1.5 }}>
-                1 free spin per day. Extra spins cost 25🪙.{" "}
+                1 free spin per day. Extra spins cost more each time and are charged immediately.{" "}
                 {spinResult !== null && spinResult > 0 && <span style={{ color: "#4ade80" }}>You won {spinResult} coins!</span>}
               </div>
               <SpinWheel

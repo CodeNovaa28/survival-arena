@@ -129,6 +129,8 @@ export default function Arena({ mapId = "urban" }: { mapId?: string }) {
         <meshLambertMaterial color={t.groundColor} />
       </mesh>
 
+      <MapSignature mapId={mapId} theme={t} />
+
       {/* Zone floor panels — 4 quadrants with subtle tint */}
       {([
         [ qc, -qc, t.obstacleAccent],
@@ -216,6 +218,122 @@ export default function Arena({ mapId = "urban" }: { mapId?: string }) {
 
       {/* Secret portal — always visible in corner, activates after wave 3 */}
       <SecretPortal />
+    </group>
+  );
+}
+
+function MapSignature({ mapId, theme }: { mapId: string; theme: ReturnType<typeof getMap>["theme"] }) {
+  if (mapId === "urban") {
+    return (
+      <group>
+        {[-11.25, 11.25].map((x) => (
+          <mesh key={x} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.012, 0]}>
+            <planeGeometry args={[0.16, ARENA_SIZE - 4]} />
+            <meshBasicMaterial color="#fbbf24" transparent opacity={0.35} />
+          </mesh>
+        ))}
+        {[[-20, -20], [20, -20], [-20, 20], [20, 20]].map(([x, z]) => (
+          <group key={`${x}_${z}`} position={[x, 0, z]}>
+            <mesh position={[0, 2.5, 0]}>
+              <cylinderGeometry args={[0.12, 0.18, 5, 8]} />
+              <meshBasicMaterial color="#94a3b8" />
+            </mesh>
+            <pointLight position={[0, 5, 0]} color="#fbbf24" intensity={0.35} distance={8} />
+          </group>
+        ))}
+      </group>
+    );
+  }
+
+  if (mapId === "ice") {
+    return (
+      <group>
+        {[[-18, -6], [18, 6], [-6, 18], [6, -18]].map(([x, z], i) => (
+          <mesh key={i} position={[x, 1.5, z]} rotation={[0.1 * i, i * 0.8, 0.08]}>
+            <coneGeometry args={[1.2 + (i % 2) * 0.5, 3 + (i % 2), 6]} />
+            <meshStandardMaterial color={i % 2 ? "#93c5fd" : "#dbeafe"} transparent opacity={0.7} roughness={0.18} metalness={0.12} />
+          </mesh>
+        ))}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.014, 0]}>
+          <ringGeometry args={[19, 20, 48]} />
+          <meshBasicMaterial color="#67e8f9" transparent opacity={0.16} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (mapId === "desert") {
+    return (
+      <group>
+        {[[-22, -18], [22, 18], [-18, 22], [18, -22]].map(([x, z], i) => (
+          <group key={i} position={[x, 0, z]}>
+            <mesh position={[0, 2.4, 0]}>
+              <cylinderGeometry args={[0.8, 1.1, 4.8, 6]} />
+              <meshStandardMaterial color="#b45309" roughness={0.9} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]}>
+              <torusGeometry args={[1.5, 0.08, 6, 24]} />
+              <meshBasicMaterial color="#facc15" transparent opacity={0.5} />
+            </mesh>
+          </group>
+        ))}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.013, 0]}>
+          <circleGeometry args={[15, 32]} />
+          <meshBasicMaterial color="#f59e0b" transparent opacity={0.05} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (mapId === "volcano") {
+    return (
+      <group>
+        {[[-22, 20], [22, -20], [-20, -22], [20, 22]].map(([x, z], i) => (
+          <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.02, z]}>
+            <circleGeometry args={[4 + (i % 2), 20]} />
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.22} />
+          </mesh>
+        ))}
+        <pointLight position={[0, 1, 0]} color="#f97316" intensity={0.9} distance={30} />
+      </group>
+    );
+  }
+
+  if (mapId === "shadow") {
+    return (
+      <group>
+        {[[-22, -22], [22, -22], [-22, 22], [22, 22]].map(([x, z], i) => (
+          <group key={i} position={[x, 0, z]}>
+            <mesh position={[0, 3.5, 0]}>
+              <coneGeometry args={[1.4, 7, 5]} />
+              <meshStandardMaterial color="#12051f" emissive="#4c1d95" emissiveIntensity={0.7} />
+            </mesh>
+            <pointLight position={[0, 3, 0]} color="#7c3aed" intensity={0.5} distance={10} />
+          </group>
+        ))}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.014, 0]}>
+          <circleGeometry args={[18, 32]} />
+          <meshBasicMaterial color="#020006" transparent opacity={0.55} />
+        </mesh>
+      </group>
+    );
+  }
+
+  return (
+    <group>
+      {[-16, 0, 16].map((x) => (
+        <mesh key={`x_${x}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.015, 0]}>
+          <planeGeometry args={[0.18, ARENA_SIZE - 4]} />
+          <meshBasicMaterial color={theme.obstacleAccent} transparent opacity={0.5} />
+        </mesh>
+      ))}
+      {[-16, 0, 16].map((z) => (
+        <mesh key={`z_${z}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.016, z]}>
+          <planeGeometry args={[ARENA_SIZE - 4, 0.18]} />
+          <meshBasicMaterial color={theme.pointLightColor} transparent opacity={0.45} />
+        </mesh>
+      ))}
+      <pointLight position={[0, 4, 0]} color="#a855f7" intensity={0.8} distance={34} />
     </group>
   );
 }

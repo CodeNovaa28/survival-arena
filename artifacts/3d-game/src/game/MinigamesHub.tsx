@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useGameStore } from "./store";
 import { CoinIcon } from "./GameIcons";
+import {
+  CodeBreaker,
+  LockBreaker,
+  MemoryMatrix,
+  ReactionCore,
+  SignalSorter,
+} from "./MinigameExtras";
 
 const TODAY = () => {
   const d = new Date();
@@ -323,7 +330,7 @@ function CoinRush({ onDone }: { onDone: (coins: number) => void }) {
 }
 
 // ─── Hub ─────────────────────────────────────────────────────────────────────
-type GameId = "target" | "rush";
+type GameId = "target" | "rush" | "memory" | "lock" | "reaction" | "code" | "signal";
 type View = "hub" | GameId;
 
 export default function MinigamesHub() {
@@ -356,6 +363,51 @@ export default function MinigamesHub() {
       dailyLimit: MAX_DAILY,
       earned: rushEarned,
       locked: rushEarned >= MAX_DAILY,
+    },
+    {
+      id: "memory" as GameId,
+      title: "🧠 Memory Matrix",
+      desc: "Memorize an expanding grid sequence and repeat it without a mistake.",
+      color: "#8b5cf6",
+      dailyLimit: MAX_DAILY,
+      earned: loadDailyMg("memory"),
+      locked: loadDailyMg("memory") >= MAX_DAILY,
+    },
+    {
+      id: "lock" as GameId,
+      title: "🔒 Lock Breaker",
+      desc: "Time five precise strikes while the lock cursor sweeps across the zone.",
+      color: "#eab308",
+      dailyLimit: MAX_DAILY,
+      earned: loadDailyMg("lock"),
+      locked: loadDailyMg("lock") >= MAX_DAILY,
+    },
+    {
+      id: "reaction" as GameId,
+      title: "⚡️ Reaction Core",
+      desc: "Wait for green, then react. Early taps fail the test immediately.",
+      color: "#22c55e",
+      dailyLimit: MAX_DAILY,
+      earned: loadDailyMg("reaction"),
+      locked: loadDailyMg("reaction") >= MAX_DAILY,
+    },
+    {
+      id: "code" as GameId,
+      title: "🧬 Code Breaker",
+      desc: "Crack a three-digit security code using exact and misplaced hints.",
+      color: "#a855f7",
+      dailyLimit: MAX_DAILY,
+      earned: loadDailyMg("code"),
+      locked: loadDailyMg("code") >= MAX_DAILY,
+    },
+    {
+      id: "signal" as GameId,
+      title: "📡 Signal Sorter",
+      desc: "Route each signal to the matching channel before the timer expires.",
+      color: "#06b6d4",
+      dailyLimit: MAX_DAILY,
+      earned: loadDailyMg("signal"),
+      locked: loadDailyMg("signal") >= MAX_DAILY,
     },
   ];
 
@@ -395,7 +447,15 @@ export default function MinigamesHub() {
             }}
           >← BACK</button>
           <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: 3 }}>
-            {view === "target" ? "🎯 TARGET BLAST" : "🪙 COIN RUSH"}
+            {{
+              target: "🎯 TARGET BLAST",
+              rush: "🪙 COIN RUSH",
+              memory: "🧠 MEMORY MATRIX",
+              lock: "🔒 LOCK BREAKER",
+              reaction: "⚡️ REACTION CORE",
+              code: "🧬 CODE BREAKER",
+              signal: "📡 SIGNAL SORTER",
+            }[view]}
           </div>
         </div>
 
@@ -426,7 +486,17 @@ export default function MinigamesHub() {
           ) : (
             view === "target"
               ? <TargetBlast onDone={(c) => handleDone("target", c)} />
-              : <CoinRush onDone={(c) => handleDone("rush", c)} />
+              : view === "rush"
+                ? <CoinRush onDone={(c) => handleDone("rush", c)} />
+                : view === "memory"
+                  ? <MemoryMatrix onDone={(c) => handleDone("memory", c)} />
+                  : view === "lock"
+                    ? <LockBreaker onDone={(c) => handleDone("lock", c)} />
+                    : view === "reaction"
+                      ? <ReactionCore onDone={(c) => handleDone("reaction", c)} />
+                      : view === "code"
+                        ? <CodeBreaker onDone={(c) => handleDone("code", c)} />
+                        : <SignalSorter onDone={(c) => handleDone("signal", c)} />
           )}
         </div>
       </div>
@@ -463,7 +533,7 @@ export default function MinigamesHub() {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 32, gap: 24 }}>
+       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", alignContent: "center", flexWrap: "wrap", maxWidth: 1260, width: "100%", margin: "0 auto", padding: 32, gap: 20, overflowY: "auto" }}>
         {GAMES.map((g) => (
           <div
             key={g.id}
