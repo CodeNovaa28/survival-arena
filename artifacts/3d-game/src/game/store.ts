@@ -394,8 +394,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerPlayerDeath: () => {
     const s = get();
-    set({ playerDead: true, deathPos: s.playerPosition.clone() });
-    setTimeout(() => { get().finishGame(); }, 2500);
+    if (s.playerDead) return;
+    set({
+      playerDead: true,
+      deathPos: s.playerPosition.clone(),
+      playerVelocity: new THREE.Vector3(),
+    });
+    setTimeout(() => { get().finishGame(); }, 1800);
   },
 
   triggerLevelComplete: (levelId, reward) => {

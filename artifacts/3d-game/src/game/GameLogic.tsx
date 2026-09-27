@@ -71,10 +71,25 @@ function pathIsClear(
   return true;
 }
 
+function pathClearScore(
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  obstacleList: ReturnType<typeof getObstacles>,
+) {
+  const distance = from.distanceTo(to);
+  const steps = Math.ceil(distance / 0.75);
+  let clear = 0;
+  for (let i = 0; i <= steps; i++) {
+    const point = from.clone().lerp(to, i / Math.max(1, steps));
+    if (isPositionClear(point, obstacleList, ENEMY_RADIUS)) clear++;
+  }
+  return clear / Math.max(1, steps + 1);
+}
+
 function spawnPos(context: SpawnContext, spawnIndex: number): THREE.Vector3 {
   const edge = ARENA_HALF - 3;
   const candidates: THREE.Vector3[] = [];
-  const laneCount = 12;
+  const laneCount = 24;
 
   // Perimeter lanes avoid the map corners and give the opening wave room to
   // enter the arena instead of appearing inside a building or behind cover.
@@ -94,7 +109,12 @@ function spawnPos(context: SpawnContext, spawnIndex: number): THREE.Vector3 {
   const visibleCandidates = clearCandidates.filter((candidate) =>
     pathIsClear(candidate, context.playerPosition, context.obstacles),
   );
-  const pool = visibleCandidates.length > 0 ? visibleCandidates : clearCandidates;
+  const pool = visibleCandidates.length > 0
+    ? visibleCandidates
+    : [...clearCandidates].sort((a, b) =>
+        pathClearScore(b, context.playerPosition, context.obstacles)
+        - pathClearScore(a, context.playerPosition, context.obstacles),
+      );
 
   if (pool.length === 0) {
     throw new Error("No clear enemy spawn position found around the arena perimeter");
@@ -279,7 +299,7 @@ export default function GameLogic() {
     wavesSpawnedRef.current    = 1;
     gameTimeRef.current      = 0;
     waveTimerRef.current     = WAVE_DURATION;
-    puTimerRef.current       = 15;
+    puTimerRef.current       = s.gameMode === "practice" ? 4 : 15;
     droneShootRef.current    = 0;
     squadShootRef.current    = 0;
     guardianShootRef.current = 0;
@@ -433,7 +453,9 @@ export default function GameLogic() {
     const puItems   = Array.isArray(s.powerUpItems)   ? s.powerUpItems   : [];
     const activePUs = Array.isArray(s.activePowerUps) ? s.activePowerUps : [];
 
-    const newTime = s.timeSurvived + delta;
+    const newTime = gameMode === "practice"
+      ? s.timeSurvived
+      : s.timeSurvived + delta;
 
     // ── Safe zone ──────────────────────────────────────────────────────────
     const shrinkMult = levelDef ? levelDef.safeZoneShrinkMult : 1;
@@ -469,7 +491,9 @@ export default function GameLogic() {
       let r=Math.random(), chosen:PowerUpType="speed";
       for (let i=0;i<types.length;i++) { r-=weights[i]; if(r<=0){chosen=types[i];break;} }
       updatedPuItems.push({id:`pu_${++puId}`,position:randomArenaPos(newZone),type:chosen,lifetime:14});
-      puTimerRef.current = Math.max(10, 20-s.wave);
+      puTimerRef.current = gameMode === "practice"
+        ? 8 + Math.random() * 4
+        : Math.max(10, 20-s.wave);
     }
 
     // ── Power-up pickup ────────────────────────────────────────────────────
@@ -490,7 +514,7 @@ export default function GameLogic() {
     }
 
     // ── Secret portal proximity check ─────────────────────────────────────────
-    if (!s.inSecretLevel) {
+    if (!s.inSecretLevel && gameMode !== "practice") {
       const pdx = playerPos.x - SECRET_PORTAL_POS.x;
       const pdz = playerPos.z - SECRET_PORTAL_POS.z;
       if (s.secretPortalOpen && Math.sqrt(pdx*pdx+pdz*pdz) < 2.5) {
@@ -504,7 +528,7 @@ export default function GameLogic() {
     const waveExhausted = enemies.length===0 && now>3;
 
     // Secret level wave progression
-    if (s.inSecretLevel) {
+    if (gameMode !== "practice" && s.inSecretLevel) {
       if (waveExhausted && !secretWaveLockedRef.current) {
         secretWaveLockedRef.current = true;
         const sw = s.secretWave;
@@ -530,7 +554,7 @@ export default function GameLogic() {
         return;
       }
       // Skip normal wave logic when in secret level
-    } else {
+    } else if (gameMode !== "practice") {
       // ── Secret portal activation — unlock after wave 3 in qualifying levels ─
       if (!portalNotifiedRef.current && !s.secretPortalOpen) {
         const shouldActivate = (
@@ -851,10 +875,17 @@ export default function GameLogic() {
 
     // ── Damage & death ─────────────────────────────────────────────────────
     const rawDmg   = contactDmg + bulletPlayerDmg + zoneDmg;
-    const totalDmg = hasShield ? zoneDmg * 0.3 : rawDmg;
+    // Practice is a non-destructive sandbox: enemies still attack so the
+    // player can test pressure, but no damage is committed to the HUD.
+    const totalDmg = gameMode === "practice"
+      ? 0
+      : hasShield ? zoneDmg * 0.3 : rawDmg;
     const newHp    = Math.max(0, Math.min(s.maxPlayerHp, s.playerHp - totalDmg));
 
-    if (rawDmg > 0.5 && !hasShield) { playPlayerHit(); newKillStreak = 0; } // streak reset on damage
+    if (rawDmg > 0.5 && !hasShield && gameMode !== "practice") {
+      playPlayerHit();
+      newKillStreak = 0;
+    } // streak reset on damage
 
     // ── Commit ─────────────────────────────────────────────────────────────
     s.setTimeSurvived(newTime);
@@ -882,10 +913,8 @@ export default function GameLogic() {
     }
 
     if (newHp !== s.playerHp) {
-      // In practice mode, never die — floor at 1 HP
-      const finalHp = gameMode === "practice" ? Math.max(1, newHp) : newHp;
-      s.setPlayerHp(finalHp);
-      if (finalHp <= 0) {
+      s.setPlayerHp(newHp);
+      if (newHp <= 0) {
         if (s.reviveAvailable) { s.revive(); }
         else { playGameOver(); s.triggerPlayerDeath(); }
       }

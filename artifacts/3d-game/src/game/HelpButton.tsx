@@ -6,7 +6,8 @@ const SECTIONS = [
     items: [
       ["WASD  or  ↑↓←→", "Move your character"],
       ["Mouse", "Aim (character always faces cursor)"],
-      ["Left Click", "Shoot toward cursor"],
+        ["Left Click", "Shoot; hold to move forward when enabled"],
+        ["Right Click", "Hold to move backward when enabled"],
       ["F (hold)", "Melee attack in front arc"],
       ["Q", "Drone Strike ability (unlocks at Level 5)"],
       ["E", "Squad Backup ability (unlocks at Level 8)"],
@@ -18,7 +19,7 @@ const SECTIONS = [
     items: [
       ["Endless", "Survive as long as possible — waves never stop. Compete for best time."],
       ["Levels", "20 progressively harder challenges. Complete them to unlock perks & skins."],
-      ["Practice", "No death, no zone, no timer. Train on dummies with all your gear."],
+      ["Practice", "No damage, no zone, no timer. Train on respawning dummies with power-ups."],
     ],
   },
   {
