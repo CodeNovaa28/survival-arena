@@ -29,7 +29,7 @@ Survival Arena drops you into a relentless survival arena where each wave brings
 ## 📸 Screenshots
 
 <img width="1920" height="881" alt="image" src="https://github.com/user-attachments/assets/5826f908-93a2-4c49-9e58-4a4575b7e9ef" />
-<img width="1920" height="881" alt="image" src="https://github.com/user-attachments/assets/88971162-ddb7-4b8d-85aa-8c82f5a60c71" />
+<img width="1920" height="877" alt="image" src="https://github.com/user-attachments/assets/e726c973-5d56-45d5-8eab-1601819c4b0c" />
 <img width="1920" height="877" alt="image" src="https://github.com/user-attachments/assets/ac9a285e-94b3-4f60-b412-932817611009" />
 <img width="1920" height="880" alt="image" src="https://github.com/user-attachments/assets/042bd322-c20d-4a92-b1e6-3d048a8e8956" />
 <img width="1920" height="881" alt="image" src="https://github.com/user-attachments/assets/5f7460d6-cbea-4229-a668-a455f089e418" />
