@@ -347,7 +347,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Setters
   setPhase:          (phase)    => set({ phase }),
-  setPlayerHp:       (playerHp) => set({ playerHp }),
+  setPlayerHp:       (playerHp) => set((s) => ({
+    // Practice is a non-destructive sandbox. Keep the invariant at the
+    // state boundary as well as in the combat loop so no future damage
+    // source can lower HP while practicing.
+    playerHp: s.gameMode === "practice"
+      ? Math.max(s.playerHp, Math.min(s.maxPlayerHp, playerHp))
+      : playerHp,
+  })),
   setMaxPlayerHp:    (maxPlayerHp) => set({ maxPlayerHp }),
   setTimeSurvived:   (t)        => set({ timeSurvived: t }),
   setWave:           (wave)     => set({ wave }),
@@ -613,6 +620,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   restart: () => set((s) => ({
     ...INITIAL_SESSION, phase: "playing", gameKey: s.gameKey + 1,
+    // The caller selects the mode/level immediately before restarting.
+    // Preserve them instead of resetting every run to Endless.
+    gameMode: s.gameMode, currentLevel: s.currentLevel,
     playerDead: false, levelCompleting: false,
     secretPortalOpen: false, inSecretLevel: false, secretWave: 0,
     dyingEnemies: [],

@@ -29,7 +29,7 @@ export default function Player() {
   const aimTargetRef = useRef(new THREE.Vector3(0,0,-1));
   const cooldownRef= useRef(0);
   const shieldRef  = useRef(0);
-  const mouseButtonsRef = useRef({ forward: false, back: false });
+  const mouseButtonsRef = useRef({ moveTowardAim: false });
 
   const [, getControls] = useKeyboardControls<Controls>();
   const { camera, gl }  = useThree();
@@ -113,31 +113,29 @@ export default function Player() {
     };
 
     const onMove      = (e: MouseEvent)   => updateAim(e.clientX, e.clientY);
-    const onClick     = (e: MouseEvent)   => tryShoot(e.clientX, e.clientY);
     const mouseMoveEnabled = localStorage.getItem("zb_mouse_move") !== "0";
     const onPtrDown   = (e: PointerEvent) => {
       if (e.button === 0) {
+        // Left mouse is fire only. Movement remains keyboard-controlled.
         tryShoot(e.clientX, e.clientY);
-        if (mouseMoveEnabled) mouseButtonsRef.current.forward = true;
       } else if (e.button === 2 && mouseMoveEnabled) {
-        mouseButtonsRef.current.back = true;
+        // Right mouse moves toward the current ground-plane aim direction.
+        updateAim(e.clientX, e.clientY);
+        mouseButtonsRef.current.moveTowardAim = true;
         e.preventDefault();
       }
     };
     const onPtrUp = (e: PointerEvent) => {
-      if (e.button === 0) mouseButtonsRef.current.forward = false;
-      if (e.button === 2) mouseButtonsRef.current.back = false;
+      if (e.button === 2) mouseButtonsRef.current.moveTowardAim = false;
     };
     const onContextMenu = (e: MouseEvent) => {
       if (mouseMoveEnabled) e.preventDefault();
     };
     const clearMouseButtons = () => {
-      mouseButtonsRef.current.forward = false;
-      mouseButtonsRef.current.back = false;
+      mouseButtonsRef.current.moveTowardAim = false;
     };
 
     canvas.addEventListener("mousemove",  onMove);
-    canvas.addEventListener("click",      onClick);
     canvas.addEventListener("pointerdown",onPtrDown);
     canvas.addEventListener("pointerup", onPtrUp);
     canvas.addEventListener("pointercancel", onPtrUp);
@@ -145,7 +143,6 @@ export default function Player() {
     window.addEventListener("blur", clearMouseButtons);
     return () => {
       canvas.removeEventListener("mousemove",  onMove);
-      canvas.removeEventListener("click",      onClick);
       canvas.removeEventListener("pointerdown",onPtrDown);
       canvas.removeEventListener("pointerup", onPtrUp);
       canvas.removeEventListener("pointercancel", onPtrUp);
@@ -169,10 +166,16 @@ export default function Player() {
 
     const ctrl = getControls();
     const vel  = new THREE.Vector3(0,0,0);
-    if (ctrl.forward || mouseButtonsRef.current.forward) vel.z -= 1;
-    if (ctrl.back || mouseButtonsRef.current.back)       vel.z += 1;
-    if (ctrl.left)    vel.x -= 1;
-    if (ctrl.right)   vel.x += 1;
+    if (mouseButtonsRef.current.moveTowardAim) {
+      // The cursor determines both facing and the right-click travel
+      // direction. This keeps the control responsive without firing.
+      vel.copy(aimTargetRef.current);
+    } else {
+      if (ctrl.forward) vel.z -= 1;
+      if (ctrl.back)    vel.z += 1;
+      if (ctrl.left)    vel.x -= 1;
+      if (ctrl.right)   vel.x += 1;
+    }
 
     if (vel.lengthSq() > 0) vel.normalize().multiplyScalar(speed * delta);
 

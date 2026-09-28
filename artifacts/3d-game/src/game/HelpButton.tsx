@@ -6,8 +6,8 @@ const SECTIONS = [
     items: [
       ["WASD  or  ↑↓←→", "Move your character"],
       ["Mouse", "Aim (character always faces cursor)"],
-        ["Left Click", "Shoot; hold to move forward when enabled"],
-        ["Right Click", "Hold to move backward when enabled"],
+      ["Left Click", "Shoot only"],
+      ["Right Click", "Hold to move toward the aimed direction when enabled"],
       ["F (hold)", "Melee attack in front arc"],
       ["Q", "Drone Strike ability (unlocks at Level 5)"],
       ["E", "Squad Backup ability (unlocks at Level 8)"],

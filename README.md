@@ -89,7 +89,7 @@ Coins and gems drop from enemies and chests on the map. Spend them in the **Cust
 
 Practice Mode is intentionally separate from survival progression: dummies respawn, power-ups appear regularly, the safe zone does not shrink, normal waves and secret paths are disabled, and incoming damage is ignored.
 
-The seven minigames use the same daily reward protection as the rest of the economy. Each game tracks up to 150 coins per day, with a gem bonus for a strong run.
+The seven minigames share one daily reward cap: all seven together can award up to 150 coins per day, with a gem bonus for a strong run. Switching games cannot bypass the cap, and it resets automatically at the next daily reset.
 
 ### Completed system polish
 
@@ -107,13 +107,13 @@ The seven minigames use the same daily reward protection as the rest of the econ
 | Move | `W` `A` `S` `D` |
 | Aim | Mouse cursor |
 | Shoot | Left Mouse Button |
-| Optional mouse movement | Hold Mouse 1 to move forward, Mouse 2 to move backward |
+| Optional mouse movement | Hold Mouse 2 to move toward the aimed direction; Mouse 1 fires only |
 | Melee attack | `F` |
 | Pause | `Escape` |
 | Use ability | `Q` |
 
-> 🎯 Aim is always relative to your mouse position — click toward an enemy to fire.
-> Mouse movement can be enabled or disabled in Settings. Aim follows the ground-plane cursor smoothly while keyboard movement remains available.
+> 🎯 Aim is always relative to your mouse position — left click fires toward the cursor.
+> Mouse movement can be enabled or disabled in Settings. Hold right click to move toward the aimed direction; keyboard movement remains available.
 
 ---
 

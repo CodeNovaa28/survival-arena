@@ -59,7 +59,7 @@ export default function PracticeMode() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}>
           {[
             { icon: "🎯", title: "Target Dummies", desc: "12 stationary dummies placed around the map — kill them to test your damage output." },
-            { icon: "💊", title: "Can't Die", desc: "Your HP will never drop below 1 HP. Focus on learning weapon ranges and angles." },
+            { icon: "💊", title: "Can't Die", desc: "Combat cannot reduce your HP. Focus on learning weapon ranges and angles." },
             { icon: "⚡", title: "Power-ups Active", desc: "Power-ups still spawn and can be collected, just like in a real match." },
             { icon: "🗺️", title: "All Your Maps", desc: "Choose from any map you own. Dummies will be placed across the full arena." },
           ].map((c) => (

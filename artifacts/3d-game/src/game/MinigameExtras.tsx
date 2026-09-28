@@ -34,10 +34,41 @@ function Hint({ children }: { children: string }) {
   return <div style={{ fontSize: 11, color: "#8fa3bb", letterSpacing: 1.5, lineHeight: 1.6 }}>{children}</div>;
 }
 
+type DigitStatus = "correct" | "present" | "absent";
+interface CodeFeedback {
+  guess: string;
+  statuses: DigitStatus[];
+}
+
+function evaluateCodeGuess(guess: string, secret: string): CodeFeedback {
+  const statuses: DigitStatus[] = ["absent", "absent", "absent"];
+  const remaining = new Map<string, number>();
+
+  for (let index = 0; index < secret.length; index++) {
+    if (guess[index] === secret[index]) {
+      statuses[index] = "correct";
+    } else {
+      remaining.set(secret[index], (remaining.get(secret[index]) ?? 0) + 1);
+    }
+  }
+
+  for (let index = 0; index < guess.length; index++) {
+    if (statuses[index] === "correct") continue;
+    const count = remaining.get(guess[index]) ?? 0;
+    if (count > 0) {
+      statuses[index] = "present";
+      remaining.set(guess[index], count - 1);
+    }
+  }
+
+  return { guess, statuses };
+}
+
 // ─── Memory Matrix ────────────────────────────────────────────────────────────
 export function MemoryMatrix({ onDone }: { onDone: MinigameDone }) {
   const [phase, setPhase] = useState<"idle" | "show" | "input">("idle");
   const [sequence, setSequence] = useState<number[]>([]);
+  const [selectedCells, setSelectedCells] = useState<number[]>([]);
   const [step, setStep] = useState(0);
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
@@ -49,6 +80,7 @@ export function MemoryMatrix({ onDone }: { onDone: MinigameDone }) {
         setStep(step + 1);
       } else {
         setStep(0);
+        setSelectedCells([]);
         setPhase("input");
       }
     }, 520);
@@ -59,12 +91,14 @@ export function MemoryMatrix({ onDone }: { onDone: MinigameDone }) {
     setSequence(Array.from({ length: 3 }, () => Math.floor(Math.random() * 9)));
     setRound(1);
     setScore(0);
+    setSelectedCells([]);
     setStep(0);
     setPhase("show");
   };
 
   const choose = (cell: number) => {
     if (phase !== "input") return;
+    setSelectedCells((cells) => cells.includes(cell) ? cells : [...cells, cell]);
     if (cell !== sequence[step]) {
       onDone(Math.min(120, Math.max(10, score)));
       return;
@@ -80,6 +114,7 @@ export function MemoryMatrix({ onDone }: { onDone: MinigameDone }) {
     }
     setScore(nextScore);
     setRound(round + 1);
+    setSelectedCells([]);
     setSequence(Array.from({ length: sequence.length + 1 }, () => Math.floor(Math.random() * 9)));
     setStep(0);
     setPhase("show");
@@ -94,14 +129,24 @@ export function MemoryMatrix({ onDone }: { onDone: MinigameDone }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, maxWidth: 330, margin: "0 auto 20px" }}>
         {Array.from({ length: 9 }, (_, cell) => {
           const active = phase === "show" && sequence[step] === cell;
+          const selected = phase === "input" && selectedCells.includes(cell);
           return (
             <button
               key={cell}
               onClick={() => choose(cell)}
               style={{
-                aspectRatio: "1", borderRadius: 12, border: `1px solid ${active ? "#fef08a" : "rgba(148,163,184,0.22)"}`,
-                background: active ? "radial-gradient(circle, #fef08a, #eab308)" : "rgba(30,64,175,0.25)",
-                boxShadow: active ? "0 0 30px rgba(250,204,21,0.8)" : "inset 0 1px 0 rgba(255,255,255,0.06)",
+                aspectRatio: "1", borderRadius: 12,
+                border: `1px solid ${active ? "#fef08a" : selected ? "#67e8f9" : "rgba(148,163,184,0.22)"}`,
+                background: active
+                  ? "radial-gradient(circle, #fef08a, #eab308)"
+                  : selected
+                    ? "radial-gradient(circle, #67e8f9, #0e7490)"
+                    : "rgba(30,64,175,0.25)",
+                boxShadow: active
+                  ? "0 0 30px rgba(250,204,21,0.8)"
+                  : selected
+                    ? "0 0 22px rgba(34,211,238,0.65)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.06)",
                 cursor: phase === "input" ? "pointer" : "default",
                 transition: "all .15s",
               }}
@@ -125,32 +170,65 @@ export function LockBreaker({ onDone }: { onDone: MinigameDone }) {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const direction = useRef(1);
+  const cursorRef = useRef(0);
+  const animationRef = useRef<number | null>(null);
+  const lastFrameRef = useRef<number | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const TARGET_WIDTH_PERCENT = 18;
+  const LINE_WIDTH_PX = 5;
 
   useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => {
-      setCursor((value) => {
-        let next = value + direction.current * 2.4;
-        if (next >= 96) { next = 96; direction.current = -1; }
-        if (next <= 0) { next = 0; direction.current = 1; }
-        return next;
-      });
-    }, 16);
-    return () => window.clearInterval(timer);
+    if (!running) {
+      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+      lastFrameRef.current = null;
+      return;
+    }
+
+    const animate = (timestamp: number) => {
+      const previous = lastFrameRef.current ?? timestamp;
+      const elapsed = Math.min(0.05, Math.max(0, (timestamp - previous) / 1000));
+      lastFrameRef.current = timestamp;
+
+      let next = cursorRef.current + direction.current * 150 * elapsed;
+      if (next >= 96) { next = 96; direction.current = -1; }
+      if (next <= 0) { next = 0; direction.current = 1; }
+      cursorRef.current = next;
+      setCursor(next);
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+      lastFrameRef.current = null;
+    };
   }, [running]);
+
+  const randomTarget = (minimum: number) =>
+    minimum + Math.random() * Math.max(1, 100 - TARGET_WIDTH_PERCENT - minimum);
 
   const start = () => {
     setRunning(true);
     setRound(1);
     setScore(0);
     setCursor(0);
-    setTarget(18 + Math.random() * 62);
+    cursorRef.current = 0;
+    setTarget(randomTarget(18));
     direction.current = 1;
   };
 
   const strike = () => {
     if (!running) return;
-    const hit = cursor >= target - 5 && cursor <= target + 18;
+    const trackWidth = trackRef.current?.getBoundingClientRect().width ?? 1;
+    const targetStart = (target / 100) * trackWidth;
+    const targetEnd = ((target + TARGET_WIDTH_PERCENT) / 100) * trackWidth;
+    const lineCenter = (cursorRef.current / 100) * trackWidth;
+    const lineHalfWidth = LINE_WIDTH_PX / 2;
+    // Require the whole visible line to sit inside the visible target zone.
+    const hit = lineCenter - lineHalfWidth >= targetStart
+      && lineCenter + lineHalfWidth <= targetEnd;
     if (!hit) {
       setRunning(false);
       onDone(Math.max(10, score));
@@ -165,7 +243,8 @@ export function LockBreaker({ onDone }: { onDone: MinigameDone }) {
     setScore(nextScore);
     setRound(round + 1);
     setCursor(0);
-    setTarget(8 + Math.random() * 78);
+    cursorRef.current = 0;
+    setTarget(randomTarget(8));
     direction.current = 1;
   };
 
@@ -175,9 +254,9 @@ export function LockBreaker({ onDone }: { onDone: MinigameDone }) {
       <div style={{ display: "flex", justifyContent: "space-between", margin: "18px 0 10px", color: "#fbbf24", fontSize: 12 }}>
         <span>LOCK {round}/5</span><span>SCORE {score}</span>
       </div>
-      <div style={{ position: "relative", height: 34, borderRadius: 8, background: "#111827", border: "1px solid rgba(255,255,255,.12)", overflow: "hidden", marginBottom: 18 }}>
-        <div style={{ position: "absolute", left: `${target}%`, top: 0, width: "18%", height: "100%", background: "rgba(34,197,94,.3)", borderLeft: "1px solid #4ade80", borderRight: "1px solid #4ade80" }} />
-        <div style={{ position: "absolute", left: `${cursor}%`, top: 2, width: 5, height: 28, borderRadius: 4, background: "#fef08a", boxShadow: "0 0 14px #facc15", transform: "translateX(-50%)" }} />
+      <div ref={trackRef} style={{ position: "relative", height: 34, borderRadius: 8, background: "#111827", border: "1px solid rgba(255,255,255,.12)", overflow: "hidden", marginBottom: 18 }}>
+        <div style={{ position: "absolute", left: `${target}%`, top: 0, width: `${TARGET_WIDTH_PERCENT}%`, height: "100%", background: "rgba(34,197,94,.3)", borderLeft: "1px solid #4ade80", borderRight: "1px solid #4ade80" }} />
+        <div style={{ position: "absolute", left: `${cursor}%`, top: 2, width: LINE_WIDTH_PX, height: 28, borderRadius: 4, background: "#fef08a", boxShadow: "0 0 14px #facc15", transform: "translateX(-50%)" }} />
       </div>
       {!running ? <StartButton onClick={start} /> : <button onClick={strike} style={{ ...actionStyle, background: "#ca8a04" }}>🔒 BREAK LOCK</button>}
     </div>
@@ -262,6 +341,7 @@ export function CodeBreaker({ onDone }: { onDone: MinigameDone }) {
   const [guess, setGuess] = useState("");
   const [tries, setTries] = useState(3);
   const [hint, setHint] = useState("");
+  const [feedback, setFeedback] = useState<CodeFeedback[]>([]);
   const [running, setRunning] = useState(false);
 
   const start = () => {
@@ -269,6 +349,7 @@ export function CodeBreaker({ onDone }: { onDone: MinigameDone }) {
     setGuess("");
     setTries(3);
     setHint("");
+    setFeedback([]);
     setRunning(true);
   };
 
@@ -282,11 +363,13 @@ export function CodeBreaker({ onDone }: { onDone: MinigameDone }) {
         onDone(100);
         return;
       }
-      const exact = guess.split("").filter((digit, index) => digit === secret[index]).length;
-      const present = guess.split("").filter((digit) => secret.includes(digit)).length;
+      const result = evaluateCodeGuess(guess, secret);
+      const exact = result.statuses.filter((status) => status === "correct").length;
+      const present = result.statuses.filter((status) => status === "present").length;
       const remaining = tries - 1;
+      setFeedback((history) => [...history, result]);
       setTries(remaining);
-      setHint(`${exact} exact · ${Math.max(0, present - exact)} present elsewhere`);
+      setHint(`${exact} correct position · ${present} correct digit elsewhere · ${remaining} attempt${remaining === 1 ? "" : "s"} left`);
       setGuess("");
       if (remaining <= 0) {
         setRunning(false);
@@ -304,6 +387,32 @@ export function CodeBreaker({ onDone }: { onDone: MinigameDone }) {
         <span>ATTEMPTS {tries}/3</span><span style={{ letterSpacing: 4, color: "#fff" }}>{running ? guess.padEnd(3, "•") : "•••"}</span>
       </div>
       <div style={{ minHeight: 22, color: "#a7f3d0", fontSize: 12, marginBottom: 12 }}>{hint}</div>
+      {feedback.length > 0 && (
+        <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 10, background: "rgba(15,23,42,.7)", border: "1px solid rgba(168,85,247,.18)" }}>
+          <div style={{ fontSize: 9, color: "#64748b", letterSpacing: 2, marginBottom: 8 }}>POSITION FEEDBACK</div>
+          {feedback.map((attempt, attemptIndex) => (
+            <div key={`${attempt.guess}-${attemptIndex}`} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: attemptIndex === feedback.length - 1 ? 0 : 7 }}>
+              <span style={{ width: 42, fontSize: 9, color: "#64748b" }}>TRY {attemptIndex + 1}</span>
+              <div style={{ display: "flex", gap: 5 }}>
+                {attempt.guess.split("").map((digit, index) => {
+                  const status = attempt.statuses[index];
+                  const color = status === "correct" ? "#4ade80" : status === "present" ? "#fbbf24" : "#64748b";
+                  const label = status === "correct" ? "CORRECT POSITION" : status === "present" ? "PRESENT ELSEWHERE" : "NOT IN CODE";
+                  return (
+                    <div key={`${digit}-${index}`} title={`Position ${index + 1}: ${label}`} style={{ width: 30, textAlign: "center" }}>
+                      <div style={{ color: "#94a3b8", fontSize: 8, marginBottom: 2 }}>P{index + 1}</div>
+                      <div style={{ border: `1px solid ${color}`, borderRadius: 5, padding: "4px 0", color, fontWeight: "bold" }}>{digit}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 9, fontSize: 9, color: "#94a3b8", lineHeight: 1.5 }}>
+            Green = correct position · Amber = digit appears elsewhere · Gray = digit is not in the code
+          </div>
+        </div>
+      )}
       {!running ? <StartButton onClick={start} label="▶ START CRACKING" /> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
           {["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "enter"].map((key) => (

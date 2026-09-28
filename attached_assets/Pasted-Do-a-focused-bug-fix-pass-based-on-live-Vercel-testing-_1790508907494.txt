@@ -1,0 +1,202 @@
+Do a focused bug-fix pass based on live Vercel testing. **Do not add unrelated features or redesign systems that are already working.**
+
+## 1. Minigame fixes
+
+There are currently **7 minigames total**:
+
+1. Coin Rush
+2. Memory Matrix
+3. Lock Breaker
+4. Reaction Core
+5. Code Breaker
+6. Signal Sorter
+7. Target Blast
+
+**Keep all 7 minigames. Do not remove, replace, or add minigames.**
+
+### Coin Rush
+
+Coin Rush's gameplay works correctly.
+
+The only issue is that its logo/icon is not visible in the Minigames menu/UI.
+
+Fix the missing Coin Rush logo/icon.
+
+Do not change the gameplay.
+
+### Memory Matrix
+
+Memory Matrix is a 3x3 pattern-memory game:
+
+1. A pattern of yellow boxes is shown.
+2. The player must reproduce the same pattern.
+
+The issue is that when the player enters the replication phase, the visual indication/light for the player's selected boxes is not appearing.
+
+Fix this so:
+
+* The 3x3 grid remains visible.
+* When the player clicks/selects a box during the replication phase, it visibly lights up/highlights.
+* The player can clearly see which boxes they have already selected.
+* The visual feedback happens immediately.
+* Do not change the underlying pattern logic unless necessary.
+
+### Lock Breaker
+
+Lock Breaker has a moving line and a target section. The player must stop the moving line inside the target section.
+
+Current bug:
+
+* Clicking while the line is visually inside the target section sometimes registers as a loss.
+* Clicking slightly before entering the target section can sometimes register as a win.
+
+Fix the hit detection so the **actual logical hitbox matches the visible target section**.
+
+Requirements:
+
+* The visible target section and logical success zone must be aligned.
+* If the moving line is inside the visible target section when stopped, it should count as a win.
+* If it is outside the section, it should count as a loss.
+* Account for the moving line's actual width rather than checking only a single mathematical point if appropriate.
+* Remove timing/frame-rate sensitivity that causes visually correct clicks to fail.
+* Test at different moments in the movement cycle.
+
+Do not simply make the success zone excessively large. The goal is accurate visual/logical synchronization.
+
+### Reaction Core
+
+Reaction Core is currently working correctly.
+
+**Do not modify its gameplay logic.**
+
+### Code Breaker
+
+Improve the feedback system.
+
+When the player submits a number/code:
+
+* Clearly indicate which digit(s) are in the correct position.
+* Clearly indicate where the correctly positioned digit(s) are located.
+* Provide a useful hint to help the player solve the code.
+* Make the feedback understandable without requiring the player to guess what the colors/messages mean.
+* Do not reveal the entire answer prematurely.
+* Keep the puzzle challenging.
+
+### Signal Sorter
+
+Signal Sorter is currently working correctly.
+
+**Do not modify its gameplay logic.**
+
+### Target Blast
+
+Target Blast is currently working correctly.
+
+**Do not modify its gameplay logic.**
+
+## 2. Practice Mode is still broken
+
+This is a high-priority bug.
+
+Practice Mode is **still damaging/killing the player**.
+
+Practice Mode must guarantee:
+
+* Player HP cannot decrease.
+* Enemy attacks cannot damage the player.
+* Ranged attacks cannot damage the player.
+* Any other gameplay damage source cannot damage the player.
+* The player cannot die from combat damage in Practice Mode.
+* Power-ups should still work.
+* Practice Mode must remain a practice environment rather than behaving like Endless.
+
+Please trace the actual damage/health system rather than simply changing the UI health display. The underlying health/damage logic must prevent damage in Practice Mode.
+
+Test this with multiple enemy types and attack types.
+
+## 3. Mouse controls
+
+The current mouse controls are incorrect.
+
+The intended behavior is:
+
+### Left mouse button
+
+**Fire only.**
+
+* Left click should trigger the normal firing action.
+* Left click must NOT move the player.
+
+### Right mouse button
+
+**Movement toward the aimed direction/location.**
+
+* Mouse movement continues to control aiming.
+* The player aims normally wherever the cursor is pointing.
+* Holding/using the right mouse button should move the player toward the direction/location being aimed at.
+* Right-click movement must NOT fire.
+* The movement should feel responsive and predictable.
+
+### Existing controls
+
+* Existing keyboard movement must continue working.
+* Do not break existing keyboard/mouse aiming.
+* Do not change the current aiming behavior unnecessarily, because aiming is currently working well.
+
+Test the controls in actual gameplay.
+
+## 4. Daily minigame limit
+
+The daily limit applies to **ALL 7 minigames**, not just Coin Rush.
+
+The existing daily-limit system is intentional and should be preserved, but it must apply consistently across the entire Minigames system.
+
+Requirements:
+
+* The daily limit is shared across all 7 minigames.
+* Playing/rewarding from any minigame should count toward the shared daily limit according to the existing intended system.
+* Players must not be able to bypass the daily limit by switching between different minigames.
+* Once the daily minigame limit has been exhausted, the player should not be able to continue earning minigame rewards until the next daily reset.
+* The UI should clearly communicate that the daily minigame limit has been reached.
+* Clearly show how many minigame opportunities remain for the day where appropriate.
+* The limit should reset automatically on the next daily reset.
+* Do not create separate independent daily limits for each minigame.
+* Keep the existing economy/balance of the minigame rewards.
+
+Do not remove the daily limit or make minigames an unlimited source of currency.
+
+## 5. Do not change already-working systems
+
+The following have already been tested and are working:
+
+* Spin Wheel
+* Maps
+* Enemy spawning
+* Aiming
+* Death animation
+* README
+* Reaction Core
+* Signal Sorter
+* Target Blast
+* General minigame functionality
+
+Do not unnecessarily modify these systems.
+
+## 6. Testing and completion
+
+After making the fixes:
+
+* Run typecheck/build.
+* Test all 7 minigames.
+* Test Coin Rush's logo/icon.
+* Test Memory Matrix visual selection feedback.
+* Test Lock Breaker hit detection at different timings.
+* Test Code Breaker feedback and hints.
+* Test the shared daily minigame limit across multiple different minigames.
+* Test Practice Mode with multiple enemy attack types.
+* Test left-click and right-click controls in actual gameplay.
+* Make sure no existing controls or minigames are broken.
+
+Only after everything is tested should the changes be committed.
+
+Do not push unrelated or unfinished work.

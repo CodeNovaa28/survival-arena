@@ -9,27 +9,54 @@ import {
   SignalSorter,
 } from "./MinigameExtras";
 
+const MAX_DAILY = 150;
+const LEGACY_GAME_IDS = ["target", "rush", "memory", "lock", "reaction", "code", "signal"] as const;
+const SHARED_DAILY_DATE_KEY = "zb_mg_daily_date";
+const SHARED_DAILY_EARNED_KEY = "zb_mg_daily_earned";
+
 const TODAY = () => {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 };
 
-function loadDailyMg(key: string) {
+function loadLegacyDailyMg(key: string) {
   try {
     const d = localStorage.getItem(`zb_mg_${key}_date`);
     if (d !== TODAY()) return 0;
-    return parseInt(localStorage.getItem(`zb_mg_${key}_earned`) ?? "0");
+    return Math.max(0, parseInt(localStorage.getItem(`zb_mg_${key}_earned`) ?? "0", 10) || 0);
   } catch { return 0; }
 }
 
-function saveDailyMg(key: string, earned: number) {
+function loadDailyMg() {
   try {
-    localStorage.setItem(`zb_mg_${key}_date`, TODAY());
-    localStorage.setItem(`zb_mg_${key}_earned`, String(earned));
+    const today = TODAY();
+    const savedDate = localStorage.getItem(SHARED_DAILY_DATE_KEY);
+    if (savedDate === today) {
+      return Math.min(MAX_DAILY, Math.max(0, parseInt(localStorage.getItem(SHARED_DAILY_EARNED_KEY) ?? "0", 10) || 0));
+    }
+    if (savedDate) return 0;
+
+    // Migrate today's old per-game counters so switching games cannot bypass
+    // the new shared limit for an existing player.
+    const migrated = Math.min(MAX_DAILY, LEGACY_GAME_IDS.reduce(
+      (sum, id) => sum + loadLegacyDailyMg(id),
+      0,
+    ));
+    if (migrated > 0) {
+      localStorage.setItem(SHARED_DAILY_DATE_KEY, today);
+      localStorage.setItem(SHARED_DAILY_EARNED_KEY, String(migrated));
+    }
+    return migrated;
   } catch {}
+  return 0;
 }
 
-const MAX_DAILY = 150;
+function saveDailyMg(earned: number) {
+  try {
+    localStorage.setItem(SHARED_DAILY_DATE_KEY, TODAY());
+    localStorage.setItem(SHARED_DAILY_EARNED_KEY, String(Math.min(MAX_DAILY, Math.max(0, earned))));
+  } catch {}
+}
 
 // ─── Target Blast ─────────────────────────────────────────────────────────────
 interface Target { id: number; x: number; y: number; r: number; born: number; life: number; }
@@ -342,8 +369,7 @@ export default function MinigamesHub() {
   const [earned, setEarned] = useState<number | null>(null);
   const [earnedGems, setEarnedGems] = useState(0);
 
-  const targetEarned = loadDailyMg("target");
-  const rushEarned   = loadDailyMg("rush");
+  const dailyEarned = loadDailyMg();
 
   const GAMES = [
     {
@@ -352,8 +378,8 @@ export default function MinigamesHub() {
       desc: "Click shrinking targets before they vanish. Faster clicks = higher score.",
       color: "#ef4444",
       dailyLimit: MAX_DAILY,
-      earned: targetEarned,
-      locked: targetEarned >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
     {
       id: "rush" as GameId,
@@ -361,8 +387,8 @@ export default function MinigamesHub() {
       desc: "Move your paddle to catch falling coins. Bombs cost you points — watch out.",
       color: "#f59e0b",
       dailyLimit: MAX_DAILY,
-      earned: rushEarned,
-      locked: rushEarned >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
     {
       id: "memory" as GameId,
@@ -370,8 +396,8 @@ export default function MinigamesHub() {
       desc: "Memorize an expanding grid sequence and repeat it without a mistake.",
       color: "#8b5cf6",
       dailyLimit: MAX_DAILY,
-      earned: loadDailyMg("memory"),
-      locked: loadDailyMg("memory") >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
     {
       id: "lock" as GameId,
@@ -379,8 +405,8 @@ export default function MinigamesHub() {
       desc: "Time five precise strikes while the lock cursor sweeps across the zone.",
       color: "#eab308",
       dailyLimit: MAX_DAILY,
-      earned: loadDailyMg("lock"),
-      locked: loadDailyMg("lock") >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
     {
       id: "reaction" as GameId,
@@ -388,8 +414,8 @@ export default function MinigamesHub() {
       desc: "Wait for green, then react. Early taps fail the test immediately.",
       color: "#22c55e",
       dailyLimit: MAX_DAILY,
-      earned: loadDailyMg("reaction"),
-      locked: loadDailyMg("reaction") >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
     {
       id: "code" as GameId,
@@ -397,8 +423,8 @@ export default function MinigamesHub() {
       desc: "Crack a three-digit security code using exact and misplaced hints.",
       color: "#a855f7",
       dailyLimit: MAX_DAILY,
-      earned: loadDailyMg("code"),
-      locked: loadDailyMg("code") >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
     {
       id: "signal" as GameId,
@@ -406,16 +432,16 @@ export default function MinigamesHub() {
       desc: "Route each signal to the matching channel before the timer expires.",
       color: "#06b6d4",
       dailyLimit: MAX_DAILY,
-      earned: loadDailyMg("signal"),
-      locked: loadDailyMg("signal") >= MAX_DAILY,
+      earned: dailyEarned,
+      locked: dailyEarned >= MAX_DAILY,
     },
   ];
 
-  const handleDone = (gameId: GameId, coins: number) => {
-    const prev   = loadDailyMg(gameId);
+  const handleDone = (_gameId: GameId, coins: number) => {
+    const prev   = loadDailyMg();
     const canAdd = Math.max(0, MAX_DAILY - prev);
     const actual = Math.min(coins, canAdd);
-    saveDailyMg(gameId, prev + actual);
+    saveDailyMg(prev + actual);
 
     const bonusGem = actual >= 100 ? 1 : 0;
     if (actual > 0) addCoins(actual);
@@ -472,7 +498,7 @@ export default function MinigamesHub() {
                   💎 +{earnedGems} GEM BONUS!
                 </div>
               )}
-              {earned === 0 && <div style={{ fontSize: 12, color: "#475569" }}>Daily limit reached for this game.</div>}
+              {earned === 0 && <div style={{ fontSize: 12, color: "#475569" }}>Shared daily minigame limit reached.</div>}
               <button
                 onClick={() => { setView("hub"); setEarned(null); setEarnedGems(0); }}
                 style={{
@@ -528,7 +554,7 @@ export default function MinigamesHub() {
         <div>
           <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: 4 }}>MINIGAMES</div>
           <div style={{ fontSize: 10, color: "#475569", letterSpacing: 2 }}>
-            EARN COINS · UP TO {MAX_DAILY} PER GAME DAILY · 💎 BONUS GEMS AT 100+ COINS
+             EARN COINS · UP TO {MAX_DAILY} SHARED ACROSS ALL 7 GAMES DAILY · 💎 BONUS GEMS AT 100+ COINS
           </div>
         </div>
       </div>
@@ -544,7 +570,9 @@ export default function MinigamesHub() {
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: 42, marginBottom: 12 }}>{g.title.split(" ")[0]}</div>
+            <div style={{ fontSize: 42, marginBottom: 12 }}>
+              {g.id === "rush" ? <CoinIcon size={42} /> : g.title.split(" ")[0]}
+            </div>
             <div style={{ fontSize: 16, fontWeight: "bold", color: "#fff", letterSpacing: 2, marginBottom: 8 }}>
               {g.title.slice(3)}
             </div>
@@ -555,7 +583,7 @@ export default function MinigamesHub() {
             {/* Daily progress */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#475569", marginBottom: 5 }}>
-                <span>TODAY'S COINS</span>
+                <span>SHARED TODAY'S COINS</span>
                 <span style={{ color: g.earned >= MAX_DAILY ? "#22c55e" : "#94a3b8" }}>
                   {g.earned}/{MAX_DAILY}
                 </span>

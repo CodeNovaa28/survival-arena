@@ -92,7 +92,7 @@ export default function SettingsScreen() {
             <div>
               <div style={{ fontSize: 13, color: "#fff", fontWeight: "bold", marginBottom: 4 }}>Mouse movement</div>
               <div style={{ fontSize: 10, color: "#8fa3bb", lineHeight: 1.5 }}>
-                Hold Mouse 1 to move forward and Mouse 2 to move backward. Mouse 1 still shoots.
+                Hold Mouse 2 to move toward the aimed direction. Mouse 1 fires only.
               </div>
             </div>
             <ToggleSwitch
@@ -108,8 +108,8 @@ export default function SettingsScreen() {
           }}>
             {[
               ["WASD / ↑↓←→", "Move"],
-              ["M1 hold", "Forward + shoot"],
-              ["M2 hold", "Move backward"],
+              ["M1", "Fire"],
+              ["M2 hold", "Move toward aim"],
               ["Auto", "Melee (near enemies)"],
               ["F", "Force melee swing"],
               ["Q", "Drone Strike (Lv 5+)"],
