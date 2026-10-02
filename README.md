@@ -46,9 +46,28 @@ Survival Arena drops you into a relentless survival arena where each wave brings
 - 💥 **Multiple enemy types** — Chasers, Ranged, Speeders, Tanks, and Bombers
 - 🗡️ **Melee combat** — get up close with swords, axes, and more
 - 🔫 **Diverse arsenal** — Pistol, Burst Pistol, Assault Rifle, SMG, Shotgun, Sniper Rifle, Plasma Cannon, Minigun, Trident, and more
-- ⚡ **Power-ups** — speed boosts, shields, rapid fire, and health pickups mid-wave
+- ⚡ **12 collectible power-ups** — temporary buffs for combat, movement, defense, pickups, and utility
 - 🤖 **AI Companions** — recruit allies that fight alongside you
 - 🧪 **Seven minigames** — Target Blast, Coin Rush, Memory Matrix, Lock Breaker, Reaction Core, Code Breaker, and Signal Sorter
+
+### ⚡ Power-Ups
+
+Survival Arena features 12 collectible buffs with limited durations. Duplicate pickups refresh a buff's timer instead of stacking its effect indefinitely. Stronger pickups are less common. Active buffs have HUD indicators and timers, with distinct in-game visual effects.
+
+- ⚡ **Overdrive** — increases player movement speed.
+- 🔥 **Fury** — speeds up gunfire and melee attacks.
+- 💥 **Power Shot** — increases ranged and melee damage.
+- 🛡️ **Shield** — prevents incoming damage while the timed buff is active.
+- ❤️ **Regeneration** — restores 4 HP per second, up to the player's maximum.
+- 🧲 **Magnet** — pulls nearby power-ups, hearts, and weapon drops toward the player.
+- 🎯 **Precision** — reduces weapon spread to 45% of normal.
+- 👻 **Phase** — prevents contact and Bomber blast damage; it does not block ranged shots.
+- ❄️ **Frost** — slows enemy movement while active.
+- ☢️ **Nova** — immediately deals 95 damage to enemies within 8 meters.
+- 👁️ **Hunter** — highlights nearby enemies without changing their behavior.
+- 🍀 **Fortune** — advances eligible heart or weapon drop timers when a drop slot is available.
+
+The old inert Drone pickup was replaced by Hunter. The separate Drone Strike ability is still present and unchanged.
 
 ### 🗺️ Game Modes
 - 📖 **Story Mode** — progress through handcrafted levels with narrative cutscenes
