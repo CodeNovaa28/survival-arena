@@ -68,8 +68,12 @@ export default function Player() {
 
       const gun     = getGun(store.tempWeapon ?? store.selectedGun);
       const hasRapid= store.activePowerUps.some((p) => p.type === "rapidfire");
+      const hasPowerShot = store.activePowerUps.some((p) => p.type === "powershot");
+      const hasPrecision = store.activePowerUps.some((p) => p.type === "precision");
       const cd      = hasRapid ? gun.fireRate * 0.4 : gun.fireRate;
       cooldownRef.current = cd;
+      const spreadScale = hasPrecision ? 0.45 : 1;
+      const damageScale = hasPowerShot ? 1.5 : 1;
 
       // Play sound
       if (gun.id === "shotgun") playShootShotgun();
@@ -80,10 +84,10 @@ export default function Player() {
       // Build bullet directions (multi-shot spread)
       const spreadAngles: number[] =
         gun.bulletCount === 1
-          ? [gun.spread > 0 ? (Math.random()-0.5)*gun.spread : 0]
+          ? [gun.spread > 0 ? (Math.random()-0.5)*gun.spread*spreadScale : 0]
           : Array.from({ length: gun.bulletCount }, (_, i) =>
               gun.bulletCount === 1 ? 0
-                : -gun.spread + (i / (gun.bulletCount-1)) * gun.spread * 2
+                : (-gun.spread + (i / (gun.bulletCount-1)) * gun.spread * 2) * spreadScale
             );
 
       const aim    = aimRef.current;
@@ -103,7 +107,7 @@ export default function Player() {
           direction: dir,
           speed:     gun.bulletSpeed,
           fromPlayer:true,
-          damage:    gun.damage,
+          damage:    gun.damage * damageScale,
           lifetime:  gun.range,
         };
       });

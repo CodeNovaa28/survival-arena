@@ -39,7 +39,7 @@ function HealthBar({ hp, maxHp, height }: { hp: number; maxHp: number; height: n
   );
 }
 
-function EnemyMesh({ enemy }: { enemy: Enemy }) {
+function EnemyMesh({ enemy, hunter }: { enemy: Enemy; hunter: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   const cfg = CONFIGS[enemy.type];
   const [bw, bh, bd] = cfg.bodySize;
@@ -57,6 +57,18 @@ function EnemyMesh({ enemy }: { enemy: Enemy }) {
 
   return (
     <group ref={groupRef} position={[enemy.position.x, bh / 2, enemy.position.z]}>
+      {hunter && (
+        <>
+          <mesh position={[0, -bh / 2 + 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[Math.max(bw, bd) * 0.75, Math.max(bw, bd) * 0.9, 24]} />
+            <meshBasicMaterial color="#facc15" transparent opacity={0.85} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh>
+            <sphereGeometry args={[Math.max(bw, bh, bd) * 0.68, 12, 10]} />
+            <meshBasicMaterial color="#facc15" transparent opacity={0.12} wireframe depthWrite={false} />
+          </mesh>
+        </>
+      )}
       {/* Body */}
       <mesh castShadow>
         <boxGeometry args={[bw, bh, bd]} />
@@ -123,11 +135,13 @@ function EnemyMesh({ enemy }: { enemy: Enemy }) {
 
 export default function Enemies() {
   const enemies = useGameStore((s) => s.enemies);
+  const hunter = useGameStore((s) => s.activePowerUps.some((powerUp) => powerUp.type === "hunter"));
+  const playerPosition = useGameStore((s) => s.playerPosition);
   if (!Array.isArray(enemies)) return null;
   return (
     <>
       {enemies.map((e) => (
-        <EnemyMesh key={e.id} enemy={e} />
+        <EnemyMesh key={e.id} enemy={e} hunter={hunter && e.position.distanceTo(playerPosition) <= 30} />
       ))}
     </>
   );

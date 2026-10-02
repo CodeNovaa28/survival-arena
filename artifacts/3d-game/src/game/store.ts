@@ -6,7 +6,10 @@ export type GamePhase =
   | "dailyrewards" | "practice" | "settings" | "minigames" | "cutscene";
 
 export type EnemyType = "chaser" | "tank" | "ranged" | "speeder" | "bomber" | "boss";
-export type PowerUpType = "speed" | "shield" | "rapidfire" | "heal" | "drone";
+export type PowerUpType =
+  | "speed" | "rapidfire" | "shield" | "regeneration"
+  | "powershot" | "magnet" | "precision" | "phase" | "frost"
+  | "nova" | "hunter" | "fortune";
 export type KillEffectType =
   | "explosion" | "dissolve" | "shatter" | "vaporize"
   | "vortex"    | "freeze"   | "electrocute" | "disintegrate";

@@ -12,14 +12,37 @@ function fmt(s: number) {
 }
 
 const PU_COLOR: Record<PowerUpType, string> = {
-  speed: "#06b6d4", shield: "#3b82f6", rapidfire: "#facc15", heal: "#22c55e", drone: "#a855f7",
+  speed: "#06b6d4", rapidfire: "#fb923c", shield: "#3b82f6", regeneration: "#22c55e",
+  powershot: "#ef4444", magnet: "#ec4899", precision: "#818cf8",
+  phase: "#c084fc", frost: "#67e8f9", nova: "#f97316", hunter: "#facc15", fortune: "#84cc16",
 };
 const PU_ICON: Record<PowerUpType, ReactNode> = {
-  speed:     <LightningIcon size={16} />,
-  shield:    <ShieldIcon size={16} />,
+  speed: <LightningIcon size={16} />,
   rapidfire: <FireIcon size={16} />,
-  heal:      <DrugIcon size={16} />,
-  drone:     <DroneIcon size={16} />,
+  shield: <ShieldIcon size={16} />,
+  regeneration: <DrugIcon size={16} />,
+  powershot: <span>💥</span>,
+  magnet: <span>🧲</span>,
+  precision: <span>🎯</span>,
+  phase: <span>👻</span>,
+  frost: <span>❄️</span>,
+  nova: <span>☢️</span>,
+  hunter: <span>👁️</span>,
+  fortune: <span>🍀</span>,
+};
+const PU_NAME: Record<PowerUpType, string> = {
+  speed: "OVERDRIVE",
+  rapidfire: "FURY",
+  shield: "SHIELD",
+  regeneration: "REGENERATION",
+  powershot: "POWER SHOT",
+  magnet: "MAGNET",
+  precision: "PRECISION",
+  phase: "PHASE",
+  frost: "FROST",
+  nova: "NOVA",
+  hunter: "HUNTER",
+  fortune: "FORTUNE",
 };
 
 export default function HUD() {
@@ -288,7 +311,7 @@ export default function HUD() {
             }}>
               <span style={{ fontSize: 16 }}>{PU_ICON[pu.type]}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: PU_COLOR[pu.type], letterSpacing: 1, marginBottom: 3 }}>{pu.type.toUpperCase()}</div>
+                <div style={{ fontSize: 11, color: PU_COLOR[pu.type], letterSpacing: 1, marginBottom: 3 }}>{PU_NAME[pu.type]}</div>
                 <div style={{ height: 4, background: "#222", borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ width: `${(pu.timeLeft/pu.maxTime)*100}%`, height: "100%", background: PU_COLOR[pu.type], borderRadius: 2, transition: "width .1s linear" }} />
                 </div>

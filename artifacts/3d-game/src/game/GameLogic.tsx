@@ -34,8 +34,43 @@ const COIN_REWARDS: Record<EnemyType, number> = {
 };
 
 const POWERUP_DURATION: Record<PowerUpType, number> = {
-  speed: 8, shield: 5, rapidfire: 10, heal: 0, drone: 20,
+  speed: 12,
+  rapidfire: 12,
+  shield: 10,
+  regeneration: 12,
+  powershot: 12,
+  magnet: 12,
+  precision: 12,
+  phase: 7,
+  frost: 10,
+  nova: 0.9,
+  hunter: 12,
+  fortune: 12,
 };
+
+const POWERUP_SPAWN_WEIGHTS: Array<{ type: PowerUpType; weight: number }> = [
+  { type: "speed", weight: 0.14 },
+  { type: "rapidfire", weight: 0.14 },
+  { type: "shield", weight: 0.06 },
+  { type: "regeneration", weight: 0.13 },
+  { type: "powershot", weight: 0.10 },
+  { type: "magnet", weight: 0.08 },
+  { type: "precision", weight: 0.10 },
+  { type: "phase", weight: 0.07 },
+  { type: "frost", weight: 0.08 },
+  { type: "nova", weight: 0.03 },
+  { type: "hunter", weight: 0.04 },
+  { type: "fortune", weight: 0.03 },
+];
+
+function choosePowerUpType(): PowerUpType {
+  let roll = Math.random();
+  for (const entry of POWERUP_SPAWN_WEIGHTS) {
+    roll -= entry.weight;
+    if (roll < 0) return entry.type;
+  }
+  return POWERUP_SPAWN_WEIGHTS[POWERUP_SPAWN_WEIGHTS.length - 1].type;
+}
 
 const SAFE_ZONE_START  = 40;
 const SAFE_ZONE_MIN    = 10;
@@ -472,46 +507,77 @@ export default function GameLogic() {
     // ── Active power-ups ───────────────────────────────────────────────────
     const gun = getGun(s.selectedGun);
     const updatedActivePUs = activePUs
-      .map((p) => p.type===gun.autoPowerUp ? {...p,timeLeft:9999} : {...p,timeLeft:p.timeLeft-delta})
+      .map((p) => p.type===gun.autoPowerUp ? {...p,timeLeft:9999,maxTime:9999} : {...p,timeLeft:p.timeLeft-delta})
       .filter((p) => p.timeLeft>0);
     if (gun.autoPowerUp && !updatedActivePUs.some((p) => p.type===gun.autoPowerUp)) {
       updatedActivePUs.push({type:gun.autoPowerUp,timeLeft:9999,maxTime:9999});
     }
-    const hasShield   = updatedActivePUs.some((p) => p.type==="shield");
-    const hasRapid    = updatedActivePUs.some((p) => p.type==="rapidfire");
-    const effectiveFR = hasRapid ? gun.fireRate * 0.4 : gun.fireRate;
-
     // ── Power-up item spawn ────────────────────────────────────────────────
     let updatedPuItems = puItems
       .map((p) => ({...p,lifetime:p.lifetime-delta}))
       .filter((p) => p.lifetime>0);
     if (puTimerRef.current <= 0) {
-      const types: PowerUpType[] = ["speed","shield","rapidfire","heal","drone"];
-      const weights = [0.28,0.22,0.22,0.18,0.10];
-      let r=Math.random(), chosen:PowerUpType="speed";
-      for (let i=0;i<types.length;i++) { r-=weights[i]; if(r<=0){chosen=types[i];break;} }
-      updatedPuItems.push({id:`pu_${++puId}`,position:randomArenaPos(newZone),type:chosen,lifetime:14});
+      updatedPuItems.push({id:`pu_${++puId}`,position:randomArenaPos(newZone),type:choosePowerUpType(),lifetime:14});
       puTimerRef.current = gameMode === "practice"
         ? 8 + Math.random() * 4
         : Math.max(10, 20-s.wave);
     }
 
+    const hasMagnetBeforePickup = updatedActivePUs.some((p) => p.type === "magnet");
+    if (hasMagnetBeforePickup) {
+      updatedPuItems = updatedPuItems.map((item) => {
+        const dx = playerPos.x - item.position.x;
+        const dz = playerPos.z - item.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance <= 1.5 || distance > 12) return item;
+        const travel = Math.min(distance - 1.1, 8 * delta);
+        return {
+          ...item,
+          position: item.position.clone().add(new THREE.Vector3(dx / distance, 0, dz / distance).multiplyScalar(travel)),
+        };
+      });
+    }
+
     // ── Power-up pickup ────────────────────────────────────────────────────
     const remainingPUs: typeof updatedPuItems = [];
+    const novaDamageMap = new Map<string, number>();
     for (const pu of updatedPuItems) {
       const d = Math.sqrt((pu.position.x-playerPos.x)**2+(pu.position.z-playerPos.z)**2);
       if (d < 1.5) {
-        if (pu.type==="heal") {
-          s.setPlayerHp(Math.min(s.maxPlayerHp, s.playerHp+35));
-        } else {
-          const dur = POWERUP_DURATION[pu.type];
-          const idx = updatedActivePUs.findIndex((p) => p.type===pu.type);
-          if (idx>=0) updatedActivePUs[idx].timeLeft = Math.max(updatedActivePUs[idx].timeLeft,dur);
-          else updatedActivePUs.push({type:pu.type,timeLeft:dur,maxTime:dur});
+        const dur = POWERUP_DURATION[pu.type];
+        if (pu.type === "nova") {
+          for (const enemy of enemies) {
+            if (enemy.position.distanceTo(playerPos) <= 8) {
+              const damage = emitDmgEvent(s, enemy.position.x, enemy.position.z, 95, false, false);
+              novaDamageMap.set(enemy.id, (novaDamageMap.get(enemy.id) ?? 0) + damage);
+            }
+          }
         }
+        if (pu.type === "fortune" && gameMode !== "practice") {
+          const drops = s.mapDrops;
+          const canSpawnHeart = drops.filter((drop) => drop.type === "heart").length < 2;
+          const canSpawnWeapon = drops.every((drop) => drop.type !== "weapon") && !s.tempWeapon;
+          const favorHeart = canSpawnHeart && (!canSpawnWeapon || Math.random() < 0.5);
+          const nudge = 6 + Math.random() * 3;
+          if (favorHeart) heartDropTimerRef.current = Math.min(heartDropTimerRef.current, nudge);
+          else if (canSpawnWeapon) weaponDropTimerRef.current = Math.min(weaponDropTimerRef.current, nudge);
+        }
+        const idx = updatedActivePUs.findIndex((p) => p.type===pu.type);
+        if (idx >= 0) updatedActivePUs[idx] = { type: pu.type, timeLeft: dur, maxTime: dur };
+        else updatedActivePUs.push({ type: pu.type, timeLeft: dur, maxTime: dur });
         playPowerUp();
       } else { remainingPUs.push(pu); }
     }
+
+    const hasShield = updatedActivePUs.some((p) => p.type === "shield");
+    const hasTimedShield = updatedActivePUs.some((p) => p.type === "shield" && p.maxTime < 9000);
+    const hasRapid = updatedActivePUs.some((p) => p.type === "rapidfire");
+    const hasPowerShot = updatedActivePUs.some((p) => p.type === "powershot");
+    const hasPhase = updatedActivePUs.some((p) => p.type === "phase");
+    const hasFrost = updatedActivePUs.some((p) => p.type === "frost");
+    const hasMagnet = updatedActivePUs.some((p) => p.type === "magnet");
+    const hasRegeneration = updatedActivePUs.some((p) => p.type === "regeneration");
+    const hasFortune = updatedActivePUs.some((p) => p.type === "fortune");
 
     // ── Secret portal proximity check ─────────────────────────────────────────
     if (!s.inSecretLevel && gameMode !== "practice") {
@@ -602,8 +668,8 @@ export default function GameLogic() {
     const autoMelee = closestEnemyDist <= meleeWeapon.range + 0.5;
 
     if ((autoMelee || meleeHeldRef.current) && meleeCoolRef.current <= 0) {
-      meleeCoolRef.current = meleeWeapon.cooldown;
-      s.setMeleeCooldown(meleeWeapon.cooldown);
+      meleeCoolRef.current = meleeWeapon.cooldown * (hasRapid ? 0.65 : 1);
+      s.setMeleeCooldown(meleeCoolRef.current);
       meleeTriggered = true;
 
       // Swing visual (show for 0.35s)
@@ -642,7 +708,7 @@ export default function GameLogic() {
         if (!inArc) continue;
 
         const crit = Math.random() < CRIT_CHANCE;
-        const raw  = meleeWeapon.damage;
+        const raw  = meleeWeapon.damage * (hasPowerShot ? 1.5 : 1);
         const val  = emitDmgEvent(s, e.position.x, e.position.z, raw, crit, true);
         meleeDamageMap.set(e.id, (meleeDamageMap.get(e.id) ?? 0) + val);
       }
@@ -672,11 +738,13 @@ export default function GameLogic() {
 
     for (let i=0;i<enemies.length;i++) {
       const e  = enemies[i];
-      const dmg= (bulletDamageMap.get(e.id) ?? 0) + (meleeDamageMap.get(e.id) ?? 0);
+      const dmg= (bulletDamageMap.get(e.id) ?? 0)
+        + (meleeDamageMap.get(e.id) ?? 0)
+        + (novaDamageMap.get(e.id) ?? 0);
       const hp = e.hp - dmg;
 
       if (hp<=0) {
-        if (e.type==="bomber") { const d=e.position.distanceTo(playerPos); if(d<5&&!hasShield) contactDmg+=e.baseDamage*(1-d/5); }
+        if (e.type==="bomber") { const d=e.position.distanceTo(playerPos); if(d<5&&!hasShield&&!hasPhase) contactDmg+=e.baseDamage*(1-d/5); }
         playEnemyDeath(e.type);
         totalCoinsEarned+=COIN_REWARDS[e.type];
         s.recordKill(e.type);
@@ -696,11 +764,12 @@ export default function GameLogic() {
 
       const pos=e.position.clone(); let lastShot=e.lastShot, lastDamageTime=e.lastDamageTime;
       const dx=playerPos.x-pos.x, dz=playerPos.z-pos.z, dist=Math.sqrt(dx*dx+dz*dz)||0.01;
+      const movementSpeed = e.speed * (hasFrost ? 0.55 : 1);
 
       // Wake the entire opening wave immediately so enemies enter the arena
       // instead of waiting behind cover for their alert radius to trigger.
       if (now < 60 || dist < e.alertRadius) {
-        const pf=Math.min(0.5,dist/e.speed*0.4);
+        const pf=Math.min(0.5,dist/(movementSpeed || 0.01)*0.4);
         const predX=playerPos.x+playerVel.x*pf, predZ=playerPos.z+playerVel.z*pf;
         const pdx=predX-pos.x, pdz=predZ-pos.z, pdist=Math.sqrt(pdx*pdx+pdz*pdz)||dist;
 
@@ -729,7 +798,7 @@ export default function GameLogic() {
         if (ml > 0) {
           const moved = moveWithObstacleCollision(
             pos,
-            new THREE.Vector3((mx / ml) * e.speed * delta, 0, (mz / ml) * e.speed * delta),
+            new THREE.Vector3((mx / ml) * movementSpeed * delta, 0, (mz / ml) * movementSpeed * delta),
             obs,
             ENEMY_RADIUS,
           );
@@ -742,7 +811,7 @@ export default function GameLogic() {
           newEnemyBullets.push({id:`eb_${++bulletId}`,position:new THREE.Vector3(pos.x+pdx/pdist,0.8,pos.z+pdz/pdist),direction:new THREE.Vector3(pdx/pdist,0,pdz/pdist),speed:9,fromPlayer:false,damage:e.baseDamage,lifetime:5});
           lastShot=now;
         }
-        if(e.type!=="ranged"&&dist<1.1&&now-lastDamageTime>0.5 && gameMode!=="practice") { contactDmg+=e.baseDamage*0.5; lastDamageTime=now; }
+        if(e.type!=="ranged"&&dist<1.1&&now-lastDamageTime>0.5 && gameMode!=="practice" && !hasPhase) { contactDmg+=e.baseDamage*0.5; lastDamageTime=now; }
       }
       updatedEnemies.push({...e,position:pos,hp,lastShot,lastDamageTime});
     }
@@ -821,8 +890,9 @@ export default function GameLogic() {
 
     // ── Map drops: spawn + pickup ───────────────────────────────────────────
     if (gameMode !== "practice") {
-      heartDropTimerRef.current  -= delta;
-      weaponDropTimerRef.current -= delta;
+      const fortuneSpawnMultiplier = hasFortune ? 1.55 : 1;
+      heartDropTimerRef.current  -= delta * fortuneSpawnMultiplier;
+      weaponDropTimerRef.current -= delta * fortuneSpawnMultiplier;
 
       const currentDrops = s.mapDrops;
 
@@ -855,9 +925,22 @@ export default function GameLogic() {
       }
 
       // Pickup check
-      if (currentDrops.length > 0) {
+      const dropsToProcess = s.mapDrops;
+      if (dropsToProcess.length > 0) {
         let changed = false;
-        const remaining = currentDrops.filter(drop => {
+        const movedDrops = dropsToProcess.map((drop) => {
+          if (!hasMagnet) return drop;
+          const dx = playerPos.x - drop.position.x;
+          const dz = playerPos.z - drop.position.z;
+          const distance = Math.hypot(dx, dz);
+          if (distance <= 1.5 || distance > 12) return drop;
+          const travel = Math.min(distance - 1.1, 8 * delta);
+          return {
+            ...drop,
+            position: drop.position.clone().add(new THREE.Vector3(dx / distance, 0, dz / distance).multiplyScalar(travel)),
+          };
+        });
+        const remaining = movedDrops.filter(drop => {
           if (drop.position.distanceTo(playerPos) < 1.5) {
             if (drop.type === "heart") {
               s.setPlayerHp(Math.min(s.maxPlayerHp, s.playerHp + 25));
@@ -869,7 +952,7 @@ export default function GameLogic() {
           }
           return true;
         });
-        if (changed) s.setMapDrops(remaining);
+        if (changed || hasMagnet) s.setMapDrops(remaining);
       }
     }
 
@@ -879,8 +962,10 @@ export default function GameLogic() {
     // player can test pressure, but no damage is committed to the HUD.
     const totalDmg = gameMode === "practice"
       ? 0
+      : hasTimedShield ? 0
       : hasShield ? zoneDmg * 0.3 : rawDmg;
-    const newHp    = Math.max(0, Math.min(s.maxPlayerHp, s.playerHp - totalDmg));
+    const regenHp  = hasRegeneration ? 4 * delta : 0;
+    const newHp    = Math.max(0, Math.min(s.maxPlayerHp, s.playerHp + regenHp - totalDmg));
 
     if (rawDmg > 0.5 && !hasShield && gameMode !== "practice") {
       playPlayerHit();
