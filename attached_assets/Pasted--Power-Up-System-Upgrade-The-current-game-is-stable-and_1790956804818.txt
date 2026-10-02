@@ -1,0 +1,189 @@
+## Power-Up System Upgrade
+
+The current game is stable and fully playable. **Do not modify or redesign any unrelated systems.**
+
+I want to improve the existing power-up system because the current power-ups do not meaningfully power up the player.
+
+The goal is to turn power-ups into **real, noticeable temporary buffs** that affect gameplay and give the player a reason to actively collect them.
+
+### 1. Add more power-ups
+
+Expand the existing power-up pool to around **10–12 distinct power-ups total**.
+
+Use these power-ups:
+
+#### ⚡ Overdrive
+- Temporarily increases player movement speed.
+- The increase should be clearly noticeable but not uncontrollable.
+- Duration: roughly 10–15 seconds.
+
+#### 🔥 Fury
+- Temporarily increases attack/fire rate.
+- The player should visibly/noticeably attack faster.
+- Duration: roughly 10–15 seconds.
+
+#### 💥 Power Shot
+- Temporarily increases player damage.
+- Keep the increase balanced so it does not trivialize the game.
+- Duration: roughly 10–15 seconds.
+
+#### 🛡️ Shield
+- Completely prevents incoming damage for a limited duration.
+- Make the shield visually obvious around the player.
+- Duration: roughly 8–12 seconds.
+
+#### ❤️ Regeneration
+- Gradually restores player HP over time.
+- Do not instantly refill the entire health bar.
+- The regeneration should happen over the buff duration.
+
+#### 🧲 Magnet
+- Causes nearby coins, gems, and relevant collectible pickups to move toward the player.
+- The effect should be visually noticeable.
+- Duration: roughly 10–15 seconds.
+
+#### 🎯 Precision
+- Temporarily improves attack accuracy / reduces weapon spread.
+- Do not completely remove all aiming skill unless that is already how the weapon works.
+- Duration: roughly 10–15 seconds.
+
+#### 👻 Phase
+- Temporarily allows the player to move through enemies without getting blocked.
+- Do not make the player permanently invulnerable unless another existing system already requires that.
+- Duration: roughly 5–8 seconds.
+
+#### ❄️ Frost
+- Temporarily slows nearby enemies.
+- The slow effect should be clearly noticeable.
+- It should affect appropriate enemy movement without permanently altering their base stats.
+- Duration: roughly 8–12 seconds.
+
+#### ☢️ Nova
+- When collected, triggers a strong area effect around the player that affects nearby enemies.
+- This should feel like a powerful emergency/clearing power-up.
+- Balance it so it is strong but not an instant solution to every encounter.
+
+#### 👁️ Hunter
+- Temporarily makes nearby enemies/threats easier to identify.
+- Use a clear visual effect such as highlighting or another existing appropriate visual system.
+- Do not change enemy AI.
+- Duration: roughly 10–15 seconds.
+
+#### 🍀 Fortune
+- Temporarily increases the player's chances of receiving useful pickups/rewards where the existing game systems support this.
+- Do not create exploits or unlimited currency generation.
+- Keep it balanced with the existing economy.
+
+### 2. Make buffs feel like actual buffs
+
+Every power-up must have a **clear gameplay effect**.
+
+Do not make power-ups that only:
+- change a cosmetic effect,
+- display a message,
+- or technically modify a stat that the player cannot actually notice.
+
+The player should immediately understand that collecting a power-up made them stronger, faster, safer, or otherwise more capable.
+
+### 3. Visual feedback
+
+When a power-up is active:
+- Show an obvious visual indication on/around the player where appropriate.
+- Make temporary buffs distinguishable from one another.
+- Show the remaining duration using an existing UI pattern or a small buff/timer indicator.
+- When the buff expires, remove its effects cleanly.
+- Do not clutter the screen.
+
+Examples:
+- Shield → visible protective effect.
+- Overdrive → clear speed effect.
+- Fury → noticeable attack-rate effect.
+- Magnet → visible attraction effect.
+- Frost → clear indication that nearby enemies are slowed.
+
+Use the game's existing visual style rather than introducing an unrelated art style.
+
+### 4. Buff stacking and duplicates
+
+Handle collecting the same power-up while it is already active sensibly.
+
+Preferred behavior:
+- Do not stack unlimited multipliers.
+- If the same buff is collected again, refresh or extend its duration rather than multiplying its effect indefinitely.
+- Multiple different buffs may be active simultaneously if their effects are compatible.
+
+Make sure combinations do not create absurd values or break the game.
+
+### 5. Spawn balance
+
+Increase the variety of power-ups without flooding the map.
+
+- Power-ups should remain relatively uncommon and valuable.
+- Different power-ups should have reasonable spawn chances.
+- Stronger effects such as Shield and Nova should be less common than basic buffs such as Overdrive or Regeneration.
+- Do not turn power-ups into a constant source of free advantages.
+
+### 6. Compatibility
+
+Power-ups must work correctly with:
+- Levels/Story mode
+- Endless mode
+- Practice Mode where appropriate
+- All existing maps
+- Existing enemies
+- Existing weapons/combat
+- Existing health system
+- Existing progression and saved data
+
+Practice Mode should not accidentally become vulnerable to damage because of these changes.
+
+Do not modify the existing Practice Mode safety behavior.
+
+### 7. Important: preserve the stable build
+
+**Do not modify unrelated systems.**
+
+Do NOT change:
+- Maps
+- Enemy AI
+- Enemy spawning
+- Minigames
+- Spin Wheel
+- Mouse controls
+- Keyboard controls
+- Aiming
+- Progression
+- Save/load system
+- Daily rewards
+- Economy
+- README
+- Vercel configuration
+- Git configuration
+
+unless a small compatibility change is genuinely required for the power-up system.
+
+Do not redesign existing weapons or combat mechanics beyond what is necessary for the new buffs.
+
+### 8. Testing
+
+After implementation, test:
+
+- Every power-up can spawn.
+- Every power-up can be collected.
+- Every power-up produces its intended effect.
+- Buff duration works correctly.
+- Buff expiration removes the effect correctly.
+- Duplicate pickups do not create broken stacking.
+- Multiple different buffs can coexist without breaking the player.
+- Power-ups work across multiple maps.
+- Practice Mode remains damage-free.
+- No existing controls are affected.
+- No existing game modes are broken.
+- No console/runtime errors are introduced.
+- Typecheck/build succeeds.
+
+Do not commit unfinished work.
+
+Once everything is tested and stable, commit the changes with a clear commit message.
+
+This is a **power-up system upgrade only**. Keep the rest of the game exactly as stable as it currently is.
